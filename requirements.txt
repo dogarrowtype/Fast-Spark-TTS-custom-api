@@ -1,0 +1,6 @@
+einops
+einx
+omegaconf
+soundfile
+soxr
+transformers
