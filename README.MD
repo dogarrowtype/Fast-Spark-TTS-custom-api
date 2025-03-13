@@ -15,6 +15,8 @@ Fast-Spark-TTS
 
 demo可以参考 [inference.py](inference.py)
 
+权重下载地址：[huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)、[modelscope](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)
+
 #### vLLM 配置方式
 
 ```bash
