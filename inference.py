@@ -8,7 +8,7 @@ import soundfile as sf
 
 def main():
     predictor = FastSparkTTS(
-        model_path="Spark-TTS-0.5B",
+        model_path="D:\project\Spark-TTS-Fast\checkpoints",
         max_length=32768,
         llm_device="cpu",
         bicodec_device="cpu",

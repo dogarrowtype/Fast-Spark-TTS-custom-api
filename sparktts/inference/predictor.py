@@ -32,7 +32,9 @@ class FastSparkTTS:
             from .vllm_generator import VllmGenerator
             self.generator = VllmGenerator(
                 model_path=os.path.join(model_path, "LLM"),
-                max_length=max_length, **kwargs)
+                max_length=max_length,
+                device=llm_device,
+                **kwargs)
         elif backend == "llama-cpp":
             from .llama_cpp_generator import LlamaCPPGenerator
             self.generator = LlamaCPPGenerator(
