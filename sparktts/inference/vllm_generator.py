@@ -34,6 +34,7 @@ class VllmGenerator(Generator):
             top_p=top_p,
             top_k=top_k,
             stop_token_ids=self.stop_token_ids,
+            max_tokens=max_tokens,
             **kwargs)
         output = self.model.generate(inputs, sampling_params)
         return output[0].outputs[0].text

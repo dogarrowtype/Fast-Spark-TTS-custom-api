@@ -81,8 +81,9 @@ class AsyncFastSparkTTS:
             llm_device: Literal["cpu", "cuda"] | str = "cpu",
             audio_device: Literal["cpu", "cuda"] | str = "cpu",
             vocoder_device: Literal["cpu", "cuda"] | str = "cpu",
-            backend: Literal["vllm", "llama-cpp", "sglang"] = "llama-cpp",
-            attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
+            engine: Literal["vllm", "llama-cpp", "sglang"] = "llama-cpp",
+            wav2vec_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
+            llm_gpu_memory_utilization: Optional[float] = 0.6,
             batch_size: int = 32,
             wait_timeout: float = 0.01,
             **kwargs,
@@ -91,35 +92,38 @@ class AsyncFastSparkTTS:
         self.audio_device = audio_device
         self.vocoder_device = vocoder_device
 
-        if backend == "vllm":
+        if engine == "vllm":
             from .generator.vllm_generator import VllmGenerator
             self.generator = VllmGenerator(
                 model_path=os.path.join(model_path, "LLM"),
                 max_length=max_length,
                 device=llm_device,
                 max_num_seqs=batch_size,
+                gpu_memory_utilization=llm_gpu_memory_utilization,
                 **kwargs)
-        elif backend == "llama-cpp":
+        elif engine == "llama-cpp":
             from .generator.llama_cpp_generator import LlamaCPPGenerator
             self.generator = LlamaCPPGenerator(
                 model_path=os.path.join(model_path, "LLM"),
                 gguf_model_file=gguf_model_file,
                 max_length=max_length,
                 **kwargs)
-        elif backend == 'sglang':
+        elif engine == 'sglang':
             from .generator.sglang_generator import SglangGenerator
             self.generator = SglangGenerator(
                 model_path=os.path.join(model_path, "LLM"),
                 max_length=max_length,
                 device=llm_device,
+                gpu_memory_utilization=llm_gpu_memory_utilization,
+                max_running_requests=batch_size,
                 **kwargs)
         else:
-            raise ValueError(f"Unknown backend: {backend}")
+            raise ValueError(f"Unknown backend: {engine}")
 
         self.audio_tokenizer = AudioTokenizer(
             model_path,
             device=audio_device,
-            attn_implementation=attn_implementation,
+            attn_implementation=wav2vec_attn_implementation,
             batch_size=batch_size,
             wait_timeout=wait_timeout
         )
@@ -175,6 +179,37 @@ class AsyncFastSparkTTS:
         audio = audio['waveform'][0].cpu().numpy().astype(np.float32)
         return audio
 
+    @classmethod
+    async def prepare_inputs(
+            cls,
+            reference_wav_path: str,
+            reference_text: str,
+            target_text: str,
+            max_tokens: int = 1024,
+            temperature: float = 0.6,
+            top_p: float = 0.9,
+            top_k: int = 50,
+            **kwargs
+    ):
+        waveform, sr = sf.read(reference_wav_path)
+        assert sr == 16000, "sample rate hardcoded in server"
+
+        lengths = np.array([len(waveform)], dtype=np.int32)
+        samples = np.array(waveform, dtype=np.float32)
+        samples = samples.reshape(1, -1).astype(np.float32)
+
+        return dict(
+            reference_wav=samples,
+            reference_wav_len=lengths,
+            reference_text=reference_text,
+            target_text=target_text,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+
     async def inference(
             self,
             reference_wav_path: str,
@@ -185,22 +220,18 @@ class AsyncFastSparkTTS:
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> np.ndarray:
-        waveform, sr = sf.read(reference_wav_path)
-        assert sr == 16000, "sample rate hardcoded in server"
 
-        lengths = np.array([len(waveform)], dtype=np.int32)
-        samples = np.array(waveform, dtype=np.float32)
-        samples = samples.reshape(1, -1).astype(np.float32)
-
-        audio = await self.predict(
-            reference_wav=samples,
-            reference_wav_len=lengths,
+        inputs = await self.prepare_inputs(
+            reference_wav_path=reference_wav_path,
             reference_text=reference_text,
             target_text=target_text,
+            max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
-            max_tokens=max_tokens,
             **kwargs
+        )
+        audio = await self.predict(
+            **inputs
         )
         return audio

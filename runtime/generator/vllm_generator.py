@@ -5,12 +5,20 @@ from .generator import Generator
 
 
 class VllmGenerator(Generator):
-    def __init__(self, model_path: str, max_length: int = 32768, **kwargs):
+    def __init__(
+            self,
+            model_path: str,
+            max_length: int = 32768,
+            gpu_memory_utilization: float = 0.6,
+            device: str = "cuda",
+            **kwargs):
         from vllm import AsyncEngineArgs, AsyncLLMEngine
 
         engine_kwargs = dict(
             model=model_path,
             max_model_len=max_length,
+            gpu_memory_utilization=gpu_memory_utilization,
+            device=device,
             **kwargs
         )
         async_args = AsyncEngineArgs(**engine_kwargs)
@@ -40,11 +48,13 @@ class VllmGenerator(Generator):
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
+            max_tokens=max_tokens,
             stop_token_ids=self.stop_token_ids,
             **kwargs)
         results_generator = self.model.generate(
             prompt=inputs,
-            sampling_params=sampling_params.to_vllm())
+            request_id=await self.random_uid(),
+            sampling_params=sampling_params)
         final_res = None
 
         async for res in results_generator:

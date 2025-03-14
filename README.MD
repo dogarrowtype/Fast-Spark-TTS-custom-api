@@ -15,6 +15,10 @@ Fast-Spark-TTS
 
 demo可以参考 [inference.py](inference.py)
 
+异步方法demo参考 [infer_async.py](infer_async.py)
+
+请注意：vllm，sglang等后端第一次推理会比较耗时，后面速度就会正常。如果评测，建议先使用第一条数据warmup。
+
 权重下载地址：[huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)、[modelscope](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)
 
 #### vLLM 配置方式

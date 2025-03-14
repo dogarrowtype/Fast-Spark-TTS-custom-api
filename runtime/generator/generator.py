@@ -4,6 +4,7 @@
 # Author  : Hui Huang
 from typing import List
 from transformers import AutoTokenizer
+import uuid
 
 
 class Generator:
@@ -29,6 +30,10 @@ class Generator:
         )
         tokens = tokens[-max_length:]
         return tokens
+
+    @classmethod
+    async def random_uid(cls):
+        return str(uuid.uuid4().hex)
 
     async def async_generate(
             self,

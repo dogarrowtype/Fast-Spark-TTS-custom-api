@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Time      :2025/3/13 21:22
 # Author    :Hui Huang
+from typing import Optional
+
 from sglang.srt.entrypoints.engine import Engine
 from sglang.srt.server_args import PortArgs, ServerArgs
 from sglang.srt.managers.io_struct import GenerateReqInput
@@ -8,7 +10,12 @@ from .generator import Generator
 
 
 class SglangGenerator(Generator):
-    def __init__(self, model_path: str, max_length: int = 32768, **kwargs):
+    def __init__(self,
+                 model_path: str,
+                 max_length: int = 32768,
+                 gpu_memory_utilization: Optional[float] = None,
+                 device: str = "cuda",
+                 **kwargs):
         engine_kwargs = dict(
             model_path=model_path,
             context_length=max_length,
@@ -17,6 +24,8 @@ class SglangGenerator(Generator):
             log_level_http=None,
             log_requests=False,
             show_time_cost=False,
+            mem_fraction_static=gpu_memory_utilization,
+            device=device,
             **kwargs
         )
         self.model = Engine(
