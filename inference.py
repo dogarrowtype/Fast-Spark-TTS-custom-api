@@ -5,27 +5,26 @@
 from sparktts.inference.predictor import FastSparkTTS
 import soundfile as sf
 
-
 def main():
     # vllm
-    predictor = FastSparkTTS(
-        model_path="Spark-TTS-0.5B",
-        max_length=32768,
-        llm_device="cuda:0",
-        bicodec_device="cuda:0",
-        backend="vllm",
-        gpu_memory_utilization=0.5,
-        attn_implementation="sdpa"
-    )
-
-    # llama-cpp
     # predictor = FastSparkTTS(
     #     model_path="Spark-TTS-0.5B",
     #     max_length=32768,
-    #     llm_device="cpu",
-    #     bicodec_device="cpu",
-    #     backend="vllm"
+    #     llm_device="cuda:0",
+    #     bicodec_device="cuda:0",
+    #     backend="vllm",
+    #     gpu_memory_utilization=0.5,
+    #     attn_implementation="sdpa"
     # )
+
+    # llama-cpp
+    predictor = FastSparkTTS(
+        model_path="Spark-TTS-0.5B",
+        max_length=32768,
+        llm_device="cpu",
+        bicodec_device="cpu",
+        backend="llama-cpp"
+    )
 
     wav = predictor.inference(
         "身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。",
