@@ -2,10 +2,8 @@
 # Time      :2025/3/13 20:54
 # Author    :Hui Huang
 import asyncio
-
 from runtime import AsyncFastSparkTTS
 import soundfile as sf
-from time import time
 
 
 async def run():
@@ -22,7 +20,7 @@ async def run():
     )
     # sglang
     # predictor = AsyncFastSparkTTS(
-    #     model_path="/remote-home/TCCI23/huanghui/checkpoints/Spark-TTS-0.5B",
+    #     model_path="Spark-TTS-0.5B",
     #     max_length=32768,
     #     llm_device="cuda",  # sglang没办法指定gpu id，需要使用CUDA_VISIBLE_DEVICES=0设置。
     #     audio_device="cuda:0",

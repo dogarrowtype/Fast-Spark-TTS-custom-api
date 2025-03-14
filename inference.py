@@ -9,7 +9,7 @@ import soundfile as sf
 def main():
     # vllm
     predictor = FastSparkTTS(
-        model_path="/remote-home/TCCI23/huanghui/checkpoints/Spark-TTS-0.5B",
+        model_path="Spark-TTS-0.5B",
         max_length=32768,
         llm_device="cuda:0",
         bicodec_device="cuda:0",
