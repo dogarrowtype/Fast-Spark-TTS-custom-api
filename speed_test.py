@@ -3,7 +3,7 @@
 # Time    : 2025/3/14 15:36
 # Author  : Hui Huang
 from typing import Literal
-from runtime import AsyncFastSparkTTS
+from fast_sparktts import AsyncFastSparkTTS
 import asyncio
 from time import time
 
@@ -41,7 +41,7 @@ async def run(
 
     t1 = time()
     for i in range(num_infer):
-        audio = await model.inference(
+        audio = await model.async_clone_voice(
             reference_wav_path=reference_wav,
             reference_text=reference_text,
             target_text=target_text,

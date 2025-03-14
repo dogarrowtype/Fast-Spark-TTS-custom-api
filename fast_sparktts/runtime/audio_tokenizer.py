@@ -6,8 +6,8 @@ from typing import Literal, Optional
 
 import numpy as np
 
-from runtime.batch_processor import AsyncBatchEngine
-from sparktts.models.audio_tokenizer import BiCodecTokenizer
+from .batch_processor import AsyncBatchEngine
+from ..models.audio_tokenizer import BiCodecTokenizer
 import torch
 
 

@@ -19,17 +19,12 @@ import torch.nn as nn
 
 from typing import List
 
-from sparktts.modules.blocks.vocos import VocosBackbone
-from sparktts.modules.blocks.samper import SamplingBlock
+from ..blocks.vocos import VocosBackbone
+from ..blocks.samper import SamplingBlock
 
 
-class Decoder(nn.Module):
-    """Decoder module with convnext and upsampling blocks
-
-    Args:
-        sample_ratios (List[int]): sample ratios
-            example: [2, 2] means downsample by 2x and then upsample by 2x
-    """
+class Encoder(nn.Module):
+    """Encoder module with convnext and downsampling blocks"""
 
     def __init__(
         self,
@@ -38,19 +33,30 @@ class Decoder(nn.Module):
         vocos_intermediate_dim: int,
         vocos_num_layers: int,
         out_channels: int,
-        condition_dim: int = None,
         sample_ratios: List[int] = [1, 1],
-        use_tanh_at_final: bool = False,
     ):
         super().__init__()
+        """
+        Encoder module with VocosBackbone and sampling blocks.
 
-        self.linear_pre = nn.Linear(input_channels, vocos_dim)
+        Args:
+            sample_ratios (List[int]): sample ratios
+                example: [2, 2] means downsample by 2x and then upsample by 2x
+        """
+        self.encoder = VocosBackbone(
+            input_channels=input_channels,
+            dim=vocos_dim,
+            intermediate_dim=vocos_intermediate_dim,
+            num_layers=vocos_num_layers,
+            condition_dim=None,
+        )
+
         modules = [
             nn.Sequential(
                 SamplingBlock(
                     dim=vocos_dim,
                     groups=vocos_dim,
-                    upsample_scale=ratio,
+                    downsample_scale=ratio,
                 ),
                 VocosBackbone(
                     input_channels=vocos_dim,
@@ -65,51 +71,35 @@ class Decoder(nn.Module):
 
         self.downsample = nn.Sequential(*modules)
 
-        self.vocos_backbone = VocosBackbone(
-            input_channels=vocos_dim,
-            dim=vocos_dim,
-            intermediate_dim=vocos_intermediate_dim,
-            num_layers=vocos_num_layers,
-            condition_dim=condition_dim,
-        )
-        self.linear = nn.Linear(vocos_dim, out_channels)
-        self.use_tanh_at_final = use_tanh_at_final
+        self.project = nn.Linear(vocos_dim, out_channels)
 
-    def forward(self, x: torch.Tensor, c: torch.Tensor = None):
-        """encoder forward.
-
+    def forward(self, x: torch.Tensor, *args):
+        """
         Args:
             x (torch.Tensor): (batch_size, input_channels, length)
 
         Returns:
             x (torch.Tensor): (batch_size, encode_channels, length)
         """
-        x = self.linear_pre(x.transpose(1, 2))
-        x = self.downsample(x).transpose(1, 2)
-        x = self.vocos_backbone(x, condition=c)
-        x = self.linear(x).transpose(1, 2)
-        if self.use_tanh_at_final:
-            x = torch.tanh(x)
-
-        return x
+        x = self.encoder(x)
+        x = self.downsample(x)
+        x = self.project(x)
+        return x.transpose(1, 2)
 
 
 # test
 if __name__ == "__main__":
     test_input = torch.randn(8, 1024, 50)  # Batch size = 8, 1024 channels, length = 50
-    condition = torch.randn(8, 256)
-    decoder = Decoder(
+    encoder = Encoder(
         input_channels=1024,
         vocos_dim=384,
         vocos_intermediate_dim=2048,
         vocos_num_layers=12,
         out_channels=256,
-        condition_dim=256,
         sample_ratios=[2, 2],
     )
-    output = decoder(test_input, condition)
-    print(output.shape)  # torch.Size([8, 256, 200])
-    if output.shape == torch.Size([8, 256, 200]):
-        print("Decoder test passed")
-    else:
-        print("Decoder test failed")
+
+    output = encoder(test_input)
+    print(output.shape)  # torch.Size([8, 256, 12])
+    if output.shape == torch.Size([8, 256, 12]):
+        print("test successful")

@@ -7,8 +7,8 @@ from typing import Literal, Optional
 
 import torch
 
-from runtime.batch_processor import AsyncBatchEngine
-from sparktts.models.bicodec import BiCodec
+from .batch_processor import AsyncBatchEngine
+from ..models.bicodec import BiCodec
 
 
 class VoCoder:

@@ -11,6 +11,10 @@ Fast-Spark-TTS
 
 2. pip install -r requirements.txt
 
+### 下载地址
+
+权重下载地址：[huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)、[modelscope](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)
+
 ### 推理速度
 
 显卡：A800
@@ -31,33 +35,20 @@ Fast-Spark-TTS
 
 ### Basic Usage
 
-demo可以参考 [inference.py](inference.py)
+使用方法参考 [inference.py](inference.py)
 
-异步方法demo参考 [infer_async.py](infer_async.py)
+接口部署，循环推理建议使用async异步方法。
 
 请注意：vllm，sglang等后端第一次推理会比较耗时，后面速度就会正常。如果评测，建议先使用第一条数据warmup。
 
-权重下载地址：[huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)、[modelscope](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)
+#### vLLM 安装方式
 
-#### vLLM 配置方式
-
+vllm版本需要大于`0.7.2`
 ```bash
 pip install vllm
 ```
 
-修改[inference.py](inference.py)部分代码为：
-
-```python
-predictor = FastSparkTTS(
-    model_path="Spark-TTS-0.5B",  # 模型基础路径
-    max_length=32768,  # 最大上下文长度
-    llm_device="cuda:0",  # vllm device
-    bicodec_device="cuda:0",  # 语音模块device
-    backend="vllm",
-    attn_implementation="sdpa",  # 使用flash attn加速wav2vec
-    gpu_memory_utilization=0.5  # vllm 显存占用比例，分一半给语音模型
-)
-```
+具体参考链接：https://github.com/vllm-project/vllm
 
 #### llama-cpp 配置方式
 
@@ -75,18 +66,13 @@ cd llama.cpp
 python convert_hf_to_gguf.py Spark-TTS-0.5B/LLM --outfile Spark-TTS-0.5B/LLM/model.gguf
 ```
 
-修改[inference.py](inference.py)部分代码为：
+#### sglang 配置方式
 
-```python
-predictor = FastSparkTTS(
-    model_path="Spark-TTS-0.5B",  # 模型基础路径，LLM下需要有model.gguf文件
-    max_length=32768,  # 最大上下文长度
-    llm_device="cpu",  # vllm device
-    bicodec_device="cpu",  # 语音模块device
-    backend="llama-cpp",
-    attn_implementation=None,  # 使用flash attn加速wav2vec
-)
+```bash
+pip install sglang
 ```
+
+具体参考链接：https://github.com/sgl-project/sglang
 
 #### gradio web 启动
 

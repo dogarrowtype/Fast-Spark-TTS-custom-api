@@ -4,85 +4,61 @@
 # Author  : Hui Huang
 import os
 from typing import Literal, Optional
-
-import torch
 import soundfile as sf
-import logging
 import gradio as gr
 
 from datetime import datetime
-from sparktts.inference.predictor import FastSparkTTS
-from sparktts.utils.token_parser import LEVELS_MAP_UI
+from fast_sparktts import AsyncFastSparkTTS
+from fast_sparktts.utils.token_parser import LEVELS_MAP_UI
 
 
-def run_tts(
-        text,
-        model,
-        prompt_text=None,
-        prompt_speech=None,
-        gender=None,
-        pitch=None,
-        speed=None,
-        save_dir="example/results",
-):
-    """Perform TTS inference and save the generated audio."""
-    logging.info(f"Saving audio to: {save_dir}")
-
-    if prompt_text is not None:
-        prompt_text = None if len(prompt_text) <= 1 else prompt_text
-
+def save_audio(
+        audio, save_dir="example/results"):
     # Ensure the save directory exists
     os.makedirs(save_dir, exist_ok=True)
 
     # Generate unique filename using timestamp
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     save_path = os.path.join(save_dir, f"{timestamp}.wav")
-
-    logging.info("Starting inference...")
-
-    # Perform inference and save the output audio
-    with torch.no_grad():
-        wav = model.inference(
-            text=text,
-            prompt_speech_path=prompt_speech,
-            prompt_text=prompt_text,
-            gender=gender,
-            pitch=pitch,
-            speed=speed,
-            temperature=0.2,
-            top_k=50,
-            top_p=0.95,
-            max_tokens=1024
-        )
-
-        sf.write(save_path, wav, samplerate=16000)
-
-    logging.info(f"Audio saved at: {save_path}")
-
+    sf.write(save_path, audio, samplerate=16000)
     return save_path
 
 
 def build_ui(
         model_path: str,
         max_length: int = 32768,
+        gguf_model_file: Optional[str] = None,
         llm_device: Literal["cpu", "cuda"] | str = "cpu",
-        bicodec_device: Literal["cpu", "cuda"] | str = "cpu",
-        backend: Literal["vllm", "llama-cpp"] = "llama-cpp",
-        attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
-        **kwargs):
+        audio_device: Literal["cpu", "cuda"] | str = "cpu",
+        vocoder_device: Literal["cpu", "cuda"] | str = "cpu",
+        engine: Literal["vllm", "llama-cpp", "sglang"] = "llama-cpp",
+        wav2vec_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
+        llm_gpu_memory_utilization: Optional[float] = 0.6,
+        batch_size: int = 32,
+        wait_timeout: float = 0.01,
+        temperature=0.8,
+        top_k=50,
+        top_p=0.9,
+        max_tokens=1024,
+        **kwargs, ):
     # Initialize model
-    model = FastSparkTTS(
+    model = AsyncFastSparkTTS(
         model_path=model_path,
         max_length=max_length,
+        gguf_model_file=gguf_model_file,
         llm_device=llm_device,
-        bicodec_device=bicodec_device,
-        backend=backend,
-        attn_implementation=attn_implementation,
+        audio_device=audio_device,
+        vocoder_device=vocoder_device,
+        engine=engine,
+        wav2vec_attn_implementation=wav2vec_attn_implementation,
+        llm_gpu_memory_utilization=llm_gpu_memory_utilization,
+        batch_size=batch_size,
+        wait_timeout=wait_timeout,
         **kwargs,
     )
 
     # Define callback function for voice cloning
-    def voice_clone(text, prompt_text, prompt_wav_upload, prompt_wav_record):
+    async def voice_clone(text, prompt_text, prompt_wav_upload, prompt_wav_record):
         """
         Gradio callback to clone voice using text and optional prompt speech.
         - text: The input text to be synthesised.
@@ -92,16 +68,20 @@ def build_ui(
         prompt_speech = prompt_wav_upload if prompt_wav_upload else prompt_wav_record
         prompt_text_clean = None if len(prompt_text) < 2 else prompt_text
 
-        audio_output_path = run_tts(
-            text,
-            model,
-            prompt_text=prompt_text_clean,
-            prompt_speech=prompt_speech
+        audio = await model.async_clone_voice(
+            reference_wav_path=prompt_speech,
+            reference_text=prompt_text_clean,
+            target_text=text,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            max_tokens=max_tokens
         )
+        audio_output_path = save_audio(audio)
         return audio_output_path
 
     # Define callback function for creating new voices
-    def voice_creation(text, gender, pitch, speed):
+    async def voice_creation(text, gender, pitch, speed):
         """
         Gradio callback to create a synthetic voice with adjustable parameters.
         - text: The input text for synthesis.
@@ -110,13 +90,17 @@ def build_ui(
         """
         pitch_val = LEVELS_MAP_UI[int(pitch)]
         speed_val = LEVELS_MAP_UI[int(speed)]
-        audio_output_path = run_tts(
-            text,
-            model,
+        audio = await model.async_generate_voice(
+            text=text,
             gender=gender,
             pitch=pitch_val,
-            speed=speed_val
+            speed=speed_val,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            max_tokens=max_tokens
         )
+        audio_output_path = save_audio(audio)
         return audio_output_path
 
     with gr.Blocks() as demo:
@@ -208,11 +192,17 @@ def build_ui(
 
 if __name__ == "__main__":
     demo = build_ui(
-        model_path="Spark-TTS-0.5B",
+        model_path="D:\project\Spark-TTS-Fast\checkpoints",
         max_length=32768,
         llm_device="cpu",
-        bicodec_device="cpu",
-        backend="llama-cpp"
+        audio_device="cpu",
+        vocoder_device="cpu",
+        engine="llama-cpp",
+        wav2vec_attn_implementation="eager",
+        max_tokens=512,
+        temperature=0.8,
+        top_k=50,
+        top_p=0.9,
     )
 
     # Launch Gradio with the specified server name and port
