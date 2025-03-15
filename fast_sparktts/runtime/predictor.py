@@ -126,9 +126,9 @@ class AsyncFastSparkTTS:
             model_path: str,
             max_length: int = 32768,
             gguf_model_file: Optional[str] = None,
-            llm_device: Literal["cpu", "cuda"] | str = "cpu",
-            audio_device: Literal["cpu", "cuda"] | str = "cpu",
-            vocoder_device: Literal["cpu", "cuda"] | str = "cpu",
+            llm_device: Literal["cpu", "cuda", "auto"] | str = "auto",
+            audio_device: Literal["cpu", "cuda", "auto"] | str = "auto",
+            vocoder_device: Literal["cpu", "cuda", "auto"] | str = "auto",
             engine: Literal["vllm", "llama-cpp", "sglang"] = "llama-cpp",
             wav2vec_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
             llm_gpu_memory_utilization: Optional[float] = 0.6,
@@ -152,16 +152,17 @@ class AsyncFastSparkTTS:
             wait_timeout:
             **kwargs:
         """
-        self.llm_device = llm_device
-        self.audio_device = audio_device
-        self.vocoder_device = vocoder_device
+        self.llm_device = self._auto_detect_device(llm_device)
+        self.audio_device = self._auto_detect_device(audio_device)
+        self.vocoder_device = self._auto_detect_device(vocoder_device)
+        self.engine_type = engine
 
         if engine == "vllm":
             from .generator.vllm_generator import VllmGenerator
             self.generator = VllmGenerator(
                 model_path=os.path.join(model_path, "LLM"),
                 max_length=max_length,
-                device=llm_device,
+                device=self.llm_device,
                 max_num_seqs=batch_size,
                 gpu_memory_utilization=llm_gpu_memory_utilization,
                 **kwargs)
@@ -177,7 +178,7 @@ class AsyncFastSparkTTS:
             self.generator = SglangGenerator(
                 model_path=os.path.join(model_path, "LLM"),
                 max_length=max_length,
-                device=llm_device,
+                device=self.llm_device,
                 gpu_memory_utilization=llm_gpu_memory_utilization,
                 max_running_requests=batch_size,
                 **kwargs)
@@ -186,24 +187,32 @@ class AsyncFastSparkTTS:
 
         self.audio_tokenizer = AudioTokenizer(
             model_path,
-            device=audio_device,
+            device=self.audio_device,
             attn_implementation=wav2vec_attn_implementation,
             batch_size=batch_size,
             wait_timeout=wait_timeout
         )
         self.vocoder = VoCoder(
             model_path=os.path.join(model_path, "BiCodec"),
-            device=vocoder_device,
+            device=self.vocoder_device,
             batch_size=batch_size,
             wait_timeout=wait_timeout
         )
 
+    def _auto_detect_device(self, device: str):
+        if device in ["cpu", "cuda"]:
+            return device
+        if torch.cuda.is_available():
+            return "cuda"
+        else:
+            return "cpu"
+
     async def async_clone_voice_from_ndarray(
             self,
+            text: str,
             reference_wav: np.ndarray,
             reference_wav_len: np.ndarray,
             reference_text: str,
-            target_text: str,
             temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.9,
@@ -217,7 +226,7 @@ class AsyncFastSparkTTS:
             })
         global_tokens, semantic_tokens = audio_output['global_tokens'], audio_output['semantic_tokens']
         prompt, global_token_ids = process_prompt(
-            text=target_text,
+            text=text,
             prompt_text=reference_text,
             global_token_ids=global_tokens,
             semantic_token_ids=semantic_tokens,
@@ -246,27 +255,26 @@ class AsyncFastSparkTTS:
     @classmethod
     async def prepare_clone_inputs(
             cls,
-            reference_wav_path: str,
+            text: str,
+            reference_audio,
             reference_text: str,
-            target_text: str,
             temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.9,
             max_tokens: int = 1024,
             **kwargs
     ):
-        waveform, sr = sf.read(reference_wav_path)
+        waveform, sr = sf.read(reference_audio)
         assert sr == 16000, "sample rate hardcoded in server"
 
         lengths = np.array([len(waveform)], dtype=np.int32)
         samples = np.array(waveform, dtype=np.float32)
         samples = samples.reshape(1, -1).astype(np.float32)
-
         return dict(
             reference_wav=samples,
             reference_wav_len=lengths,
             reference_text=reference_text,
-            target_text=target_text,
+            text=text,
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
@@ -276,9 +284,9 @@ class AsyncFastSparkTTS:
 
     async def async_clone_voice(
             self,
-            reference_wav_path: str,
+            text: str,
+            reference_audio: str,
             reference_text: str,
-            target_text: str,
             temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.9,
@@ -286,9 +294,9 @@ class AsyncFastSparkTTS:
             **kwargs) -> np.ndarray:
 
         inputs = await self.prepare_clone_inputs(
-            reference_wav_path=reference_wav_path,
+            reference_audio=reference_audio,
             reference_text=reference_text,
-            target_text=target_text,
+            text=text,
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
@@ -340,18 +348,18 @@ class AsyncFastSparkTTS:
 
     def clone_voice(
             self,
-            reference_wav_path: str,
+            text: str,
+            reference_audio: str,
             reference_text: str,
-            target_text: str,
             temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.9,
             max_tokens: int = 1024,
             **kwargs) -> np.ndarray:
         return asyncio.run(self.async_clone_voice(
-            reference_wav_path=reference_wav_path,
+            reference_audio=reference_audio,
             reference_text=reference_text,
-            target_text=target_text,
+            text=text,
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
@@ -366,7 +374,7 @@ class AsyncFastSparkTTS:
             pitch: Optional[Literal["very_low", " low", " moderate", " high", " very_high"]] = "moderate",
             speed: Optional[Literal["very_low", " low", " moderate", " high", " very_high"]] = "moderate",
             temperature: float = 0.8,
-            top_k: int =50,
+            top_k: int = 50,
             top_p: float = 0.9,
             max_tokens: int = 1024,
             **kwargs) -> np.ndarray:

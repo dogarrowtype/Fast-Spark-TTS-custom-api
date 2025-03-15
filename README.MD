@@ -1,21 +1,21 @@
 Fast-Spark-TTS
 ---
 
-### Overview
+## Overview
 
 使用vllm和llama cpp加速spark tts本地合成速度，支持CPU处理。
 
-### Install
+## Install
 
 1. pip install torch==2.5.1 torchaudio==2.5.1
 
 2. pip install -r requirements.txt
 
-### 下载地址
+## 下载地址
 
 权重下载地址：[huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)、[modelscope](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)
 
-### 推理速度
+## 推理速度
 
 显卡：A800
 
@@ -33,7 +33,9 @@ Fast-Spark-TTS
 |   vllm    |  GPU   |   1.95   |        1.22         |
 |  sglang   |  GPU   |   3.41   |        0.76         |
 
-### Basic Usage
+## Basic Usage
+
+### 1. 本地推理
 
 使用方法参考 [inference.py](inference.py)
 
@@ -41,9 +43,45 @@ Fast-Spark-TTS
 
 请注意：vllm，sglang等后端第一次推理会比较耗时，后面速度就会正常。如果评测，建议先使用第一条数据warmup。
 
+### 2. Gradio WebUI
+
+```bash
+pip install gradio
+```
+
+自行修改[webui.py](webui.py)配置参数，修改完后运行：
+
+```bash
+python webui.py
+```
+
+### 部署接口
+
+```bash
+pip install fastapi uvicorn httpx
+```
+
+```bash
+python server.py \
+--model_path Spark-TTS-0.5B \
+--engine vllm \
+--llm_device cuda \
+--audio_device cuda \
+--vocoder_device cuda \
+--wav2vec_attn_implementation sdpa \
+--max_length 32768 \
+--llm_gpu_memory_utilization 0.6 \
+--host 0.0.0.0 \
+--port 8000
+```
+接口请求参考[client.py](client.py)
+
+
+### 依赖说明
 #### vLLM 安装方式
 
 vllm版本需要大于`0.7.2`
+
 ```bash
 pip install vllm
 ```
@@ -73,18 +111,6 @@ pip install sglang
 ```
 
 具体参考链接：https://github.com/sgl-project/sglang
-
-#### gradio web 启动
-
-```bash
-pip install gradio
-```
-
-按照Basic Usage修改[webui.py](webui.py)
-
-```bash
-python webui.py
-```
 
 ### Reference
 
