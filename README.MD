@@ -3,7 +3,7 @@ Fast-Spark-TTS
 
 ## Overview
 
-使用vllm和llama cpp加速spark tts本地合成速度，支持CPU处理。
+使用`vllm`、`sglang`、`llama cpp`加速spark tts合成速度，支持动态批处理。
 
 ## Install
 
