@@ -76,8 +76,8 @@ def process_prompt(
 def process_prompt_control(
         text: str,
         gender: Optional[Literal["female", "male"]] = "female",
-        pitch: Optional[Literal["very_low", " low", " moderate", " high", " very_high"]] = "moderate",
-        speed: Optional[Literal["very_low", " low", " moderate", " high", " very_high"]] = "moderate",
+        pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
+        speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
 ):
     """
     Process input for voice creation.
@@ -312,8 +312,8 @@ class AsyncFastSparkTTS:
             self,
             text: str,
             gender: Optional[Literal["female", "male"]] = "female",
-            pitch: Optional[Literal["very_low", " low", " moderate", " high", " very_high"]] = "moderate",
-            speed: Optional[Literal["very_low", " low", " moderate", " high", " very_high"]] = "moderate",
+            pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
+            speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
             temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.9,
@@ -371,8 +371,8 @@ class AsyncFastSparkTTS:
             self,
             text: str,
             gender: Optional[Literal["female", "male"]] = "female",
-            pitch: Optional[Literal["very_low", " low", " moderate", " high", " very_high"]] = "moderate",
-            speed: Optional[Literal["very_low", " low", " moderate", " high", " very_high"]] = "moderate",
+            pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
+            speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
             temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.9,
