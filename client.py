@@ -24,7 +24,7 @@ def generate_voice():
     if response.status_code == 200:
         with open("generate_voice.wav", "wb") as f:
             f.write(response.content)
-        print("使用 base64 模式生成的音频已保存为 generate_voice.wav")
+        print("生成的音频已保存为 generate_voice.wav")
     else:
         print("请求失败：", response.status_code, response.text)
 
@@ -56,7 +56,7 @@ def clone_with_base64():
     if response.status_code == 200:
         with open("clone_voice.wav", "wb") as f:
             f.write(response.content)
-        print("使用 base64 模式生成的音频已保存为 clone_voice.wav")
+        print("克隆的音频已保存为 clone_voice.wav")
     else:
         print("请求失败：", response.status_code, response.text)
 
