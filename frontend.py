@@ -14,6 +14,9 @@ app = Flask(__name__)
 BASE_URL = "http://localhost:8000"
 TEMP_DIR = "TTS-TEMP"
 
+if not os.path.exists(TEMP_DIR):
+    os.makedirs(TEMP_DIR, exist_ok=True)
+
 
 @app.route('/')
 def index():
@@ -40,17 +43,14 @@ def generate_voice():
         response = requests.post(f"{BASE_URL}/generate_voice", json=payload)
         response.raise_for_status()
 
-        if not os.path.exists(TEMP_DIR):
-            os.makedirs(TEMP_DIR, exist_ok=True)
         # 创建临时文件保存音频
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=TEMP_DIR)
         temp_file.write(response.content)
         temp_file.close()
-
         return jsonify({
             "success": True,
             "message": "语音生成成功",
-            "file_path": temp_file.name
+            "file_path": os.path.basename(temp_file.name)
         })
     except Exception as e:
         return jsonify({
@@ -90,9 +90,6 @@ def clone_voice():
         response = requests.post(f"{BASE_URL}/clone_voice", json=payload)
         response.raise_for_status()
 
-        if not os.path.exists(TEMP_DIR):
-            os.makedirs(TEMP_DIR, exist_ok=True)
-
         # 创建临时文件保存音频
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=TEMP_DIR)
         temp_file.write(response.content)
@@ -101,7 +98,7 @@ def clone_voice():
         return jsonify({
             "success": True,
             "message": "声音克隆成功",
-            "file_path": temp_file.name
+            "file_path": os.path.basename(temp_file.name)
         })
     except Exception as e:
         return jsonify({
@@ -113,7 +110,15 @@ def clone_voice():
 @app.route('/play_audio/<path:file_path>')
 def play_audio(file_path):
     try:
-        return send_file(file_path, mimetype='audio/wav')
+        file_path = os.path.join(TEMP_DIR, file_path)
+
+        if os.path.exists(file_path):
+            return send_file(file_path, mimetype='audio/wav')
+        else:
+            return jsonify({
+                "success": False,
+                "message": "文件不存在"
+            }), 404
     except Exception as e:
         return jsonify({
             "success": False,
