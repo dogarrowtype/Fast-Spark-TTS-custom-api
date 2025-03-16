@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Time      :2025/3/16 12:19
 # Author    :Hui Huang
+import os
+
 from flask import Flask, render_template, request, jsonify, send_file
 import requests
 import base64
@@ -10,7 +12,7 @@ app = Flask(__name__)
 
 # 设置API地址
 BASE_URL = "http://localhost:8000"
-
+TEMP_DIR = "TTS-TEMP"
 
 @app.route('/')
 def index():
@@ -85,8 +87,11 @@ def clone_voice():
         response = requests.post(f"{BASE_URL}/clone_voice", json=payload)
         response.raise_for_status()
 
+        if not os.path.exists(TEMP_DIR):
+            os.makedirs(TEMP_DIR, exist_ok=True)
+
         # 创建临时文件保存音频
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=TEMP_DIR)
         temp_file.write(response.content)
         temp_file.close()
 
