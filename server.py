@@ -32,10 +32,10 @@ class TTSRequest(BaseModel):
     gender: Literal["female", "male"] = "female"
     pitch: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
     speed: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
-    temperature: float = 0.8
-    top_k: int = 40
-    top_p: float = 0.9
-    max_tokens: int = 512
+    temperature: float = 0.6
+    top_k: int = 50
+    top_p: float = 0.95
+    max_tokens: int = 2048
 
 
 # 定义支持多种方式传入参考音频的请求协议
@@ -44,10 +44,10 @@ class CloneRequest(BaseModel):
     reference_text: str
     # reference_audio 字段既可以是一个 URL，也可以是 base64 编码的音频数据
     reference_audio: str
-    temperature: float = 0.8
-    top_k: int = 40
-    top_p: float = 0.9
-    max_tokens: int = 512
+    temperature: float = 0.6
+    top_k: int = 50
+    top_p: float = 0.95
+    max_tokens: int = 2048
 
 
 # TTS 合成接口：接收 JSON 请求，返回合成语音（wav 格式）

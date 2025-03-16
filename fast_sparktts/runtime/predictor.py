@@ -213,10 +213,10 @@ class AsyncFastSparkTTS:
             reference_wav: np.ndarray,
             reference_wav_len: np.ndarray,
             reference_text: str,
-            temperature: float = 0.8,
+            temperature: float = 0.6,
             top_k: int = 50,
-            top_p: float = 0.9,
-            max_tokens: int = 1024,
+            top_p: float = 0.95,
+            max_tokens: int = 2048,
             **kwargs
     ) -> np.ndarray:
         audio_output = await self.audio_tokenizer.async_process(
@@ -258,10 +258,10 @@ class AsyncFastSparkTTS:
             text: str,
             reference_audio,
             reference_text: str,
-            temperature: float = 0.8,
+            temperature: float = 0.6,
             top_k: int = 50,
-            top_p: float = 0.9,
-            max_tokens: int = 1024,
+            top_p: float = 0.95,
+            max_tokens: int = 2048,
             **kwargs
     ):
         waveform, sr = sf.read(reference_audio)
@@ -287,10 +287,10 @@ class AsyncFastSparkTTS:
             text: str,
             reference_audio: str,
             reference_text: str,
-            temperature: float = 0.8,
+            temperature: float = 0.6,
             top_k: int = 50,
-            top_p: float = 0.9,
-            max_tokens: int = 1024,
+            top_p: float = 0.95,
+            max_tokens: int = 2048,
             **kwargs) -> np.ndarray:
 
         inputs = await self.prepare_clone_inputs(
@@ -314,10 +314,10 @@ class AsyncFastSparkTTS:
             gender: Optional[Literal["female", "male"]] = "female",
             pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
             speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
-            temperature: float = 0.8,
+            temperature: float = 0.6,
             top_k: int = 50,
-            top_p: float = 0.9,
-            max_tokens: int = 1024,
+            top_p: float = 0.95,
+            max_tokens: int = 2048,
             **kwargs) -> np.ndarray:
         prompt = process_prompt_control(text, gender, pitch, speed)
         generated_output = await self.generator.async_generate(
@@ -351,10 +351,10 @@ class AsyncFastSparkTTS:
             text: str,
             reference_audio: str,
             reference_text: str,
-            temperature: float = 0.8,
+            temperature: float = 0.6,
             top_k: int = 50,
-            top_p: float = 0.9,
-            max_tokens: int = 1024,
+            top_p: float = 0.95,
+            max_tokens: int = 2048,
             **kwargs) -> np.ndarray:
         return asyncio.run(self.async_clone_voice(
             reference_audio=reference_audio,
@@ -373,10 +373,10 @@ class AsyncFastSparkTTS:
             gender: Optional[Literal["female", "male"]] = "female",
             pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
             speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
-            temperature: float = 0.8,
+            temperature: float = 0.6,
             top_k: int = 50,
-            top_p: float = 0.9,
-            max_tokens: int = 1024,
+            top_p: float = 0.95,
+            max_tokens: int = 2048,
             **kwargs) -> np.ndarray:
         return asyncio.run(self.async_generate_voice(
             text=text,

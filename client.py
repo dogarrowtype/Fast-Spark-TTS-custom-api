@@ -15,10 +15,10 @@ def generate_voice():
         "gender": "male",
         "pitch": "moderate",
         "speed": "moderate",
-        "temperature": 0.2,
+        "temperature": 0.6,
         "top_p": 0.95,
         "top_k": 50,
-        "max_tokens": 512
+        "max_tokens": 2048
     }
     response = requests.post(f"{BASE_URL}/generate_voice", json=payload)
     if response.status_code == 200:
@@ -47,10 +47,10 @@ def clone_with_base64():
         "text": text,
         "reference_text": reference_text,
         "reference_audio": audio_base64,
-        "temperature": 0.2,
+        "temperature": 0.6,
         "top_p": 0.95,
         "top_k": 50,
-        "max_tokens": 512
+        "max_tokens": 2048
     }
     response = requests.post(f"{BASE_URL}/clone_voice", json=payload)
     if response.status_code == 200:

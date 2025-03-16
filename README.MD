@@ -14,17 +14,19 @@
 
 ## 🖼️ 界面预览
 
-<div align="center">
-  <table>
-    <tr>
-      <td><img src="source/generate_ui.png" alt="语音合成界面"></td>
-      <td><img src="source/clone.png" alt="声音克隆界面"></td>
-    </tr>
-    <tr>
-      <td align="center"><strong>语音合成</strong></td>
-      <td align="center"><strong>声音克隆</strong></td>
-    </tr>
-  </table>
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;">
+  <div style="text-align: center;">
+    <p><strong>语音合成</strong></p>    
+    <img src="source/generate_ui.png" alt="语音合成界面">
+  </div>
+  <div style="text-align: center;">
+    <p><strong>声音克隆</strong></p>
+    <img src="source/clone.png" alt="声音克隆界面">
+  </div>
+  <div style="text-align: center;">
+    <p><strong>角色克隆</strong></p>
+    <img src="source/role_clone.png" alt="角色克隆界面">
+  </div>
 </div>
 
 ## 🛠️ 快速开始
@@ -134,6 +136,15 @@ http://localhost:8001
 5. 调整参数
 6. 点击「克隆声音」按钮
 7. 等待克隆完成后即可播放或下载
+
+### 角色克隆
+
+1. 切换到「角色克隆」标签页
+2. 输入目标文本
+3. 选择自己喜欢的角色
+4. 调整参数
+5. 点击「角色克隆」按钮
+6. 等待克隆完成后即可播放或下载
 
 ## 推理速度
 
