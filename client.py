@@ -33,7 +33,7 @@ def clone_with_base64():
     text = "你是谁。"
     reference_text = "吃燕窝就选燕之屋，本节目由26年专注高品质燕窝的燕之屋冠名播出。豆奶牛奶换着喝，营养更均衡，本节目由豆本豆豆奶特约播出。"
 
-    reference_audio_path = "example/prompt_audio.wav"  # 请替换为你本地的参考音频文件路径
+    reference_audio_path = "data/roles/赞助商/reference_audio.wav"  # 请替换为你本地的参考音频文件路径
     try:
         with open(reference_audio_path, "rb") as f:
             audio_bytes = f.read()

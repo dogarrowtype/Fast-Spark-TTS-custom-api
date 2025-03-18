@@ -15,6 +15,9 @@ import soundfile as sf
 from starlette.middleware.cors import CORSMiddleware
 
 from fast_sparktts.runtime import AsyncFastSparkTTS
+from fast_sparktts.runtime.logger import get_logger, setup_logging
+
+logger = get_logger()
 
 app = FastAPI()
 app.add_middleware(
@@ -65,6 +68,7 @@ async def generate_voice(req: TTSRequest):
             max_tokens=req.max_tokens
         )
     except Exception as e:
+        logger.warning(f"TTS 合成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     audio_io = io.BytesIO()
@@ -93,11 +97,13 @@ async def clone_voice(
         try:
             audio_bytes = base64.b64decode(req.reference_audio)
         except Exception as e:
+            logger.warning("无效的 base64 音频数据: " + str(e))
             raise HTTPException(status_code=400, detail="无效的 base64 音频数据: " + str(e))
     # 利用 BytesIO 包装字节数据，然后使用 soundfile 读取为 numpy 数组
     try:
         bytes_io = io.BytesIO(audio_bytes)
     except Exception as e:
+        logger.warning("读取参考音频失败: " + str(e))
         raise HTTPException(status_code=400, detail="读取参考音频失败: " + str(e))
 
     try:
@@ -111,13 +117,15 @@ async def clone_voice(
             max_tokens=req.max_tokens
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail="读取上传的参考文件失败：" + str(e))
+        logger.warning("音频预处理失败：" + str(e))
+        raise HTTPException(status_code=500, detail="音频预处理失败：" + str(e))
 
     try:
         audio = await engine.async_clone_voice_from_ndarray(
             **inputs
         )
     except Exception as e:
+        logger.warning("生成克隆语音失败：" + str(e))
         raise HTTPException(status_code=500, detail="生成克隆语音失败：" + str(e))
 
     audio_io = io.BytesIO()
@@ -128,7 +136,7 @@ async def clone_voice(
 
 if __name__ == '__main__':
     # 使用 argparse 获取启动参数
-    parser = argparse.ArgumentParser(description="FastAPI TTS 部署服务")
+    parser = argparse.ArgumentParser(description="FastSparkTTS 后端")
     parser.add_argument("--model_path", type=str, required=True,
                         help="模型路径")
     parser.add_argument("--engine", type=str, required=True,
@@ -152,6 +160,11 @@ if __name__ == '__main__':
     parser.add_argument("--host", type=str, default="0.0.0.0", help="服务监听地址")
     parser.add_argument("--port", type=int, default=8000, help="服务监听端口")
     args = parser.parse_args()
+
+    setup_logging()
+
+    logger.info("启动 FastAPI TTS 服务")
+    logger.info(f"Config: {args}")
 
     # 使用解析到的参数初始化全局 TTS 引擎
     engine = AsyncFastSparkTTS(

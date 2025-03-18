@@ -33,7 +33,7 @@ def prepare_engine():
 
     # llama-cpp
     engine = AsyncFastSparkTTS(
-        model_path="D:\project\Spark-TTS-Fast\checkpoints",
+        model_path="Spark-TTS-0.5B",
         max_length=32768,
         llm_device="cpu",
         audio_device="cpu",
@@ -74,7 +74,7 @@ def clone_voice(engine: AsyncFastSparkTTS):
 
     wav = engine.clone_voice(
         text=text,
-        reference_audio="example/prompt_audio.wav",
+        reference_audio="data/roles/赞助商/reference_audio.wav",
         reference_text=reference_text,
         temperature=0.2,
         top_p=0.9,
@@ -90,7 +90,7 @@ async def async_clone_voice(engine: AsyncFastSparkTTS):
 
     wav = await engine.async_clone_voice(
         text=text,
-        reference_audio="example/prompt_audio.wav",
+        reference_audio="data/roles/赞助商/reference_audio.wav",
         reference_text=reference_text,
         temperature=0.2,
         top_p=0.9,

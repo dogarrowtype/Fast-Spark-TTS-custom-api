@@ -1,71 +1,64 @@
 # -*- coding: utf-8 -*-
 # Time      :2025/3/16 12:19
 # Author    :Hui Huang
+import argparse
 import os
 
 from flask import Flask, render_template, request, jsonify, send_file
 import requests
 import base64
 import tempfile
+from fast_sparktts.runtime.logger import get_logger, setup_logging
+
+logger = get_logger()
 
 app = Flask(__name__)
-
-# 设置API地址
-BASE_URL = "http://localhost:8000"
-# 临时存放合成音频的目录
-TEMP_DIR = "TTS-TEMP"
-# 角色克隆的音频文件列表，如需添加，请添加到列表中
-ROLE_WAVS = [
-    {
-        "name": "哪吒",
-        "reference_audio": "example/roles/nezha.wav",
-        "reference_text": "别烦我，让我一个人安静地死去。"
-    },
-    {
-        "name": "李靖",
-        "reference_audio": "example/roles/lijing.wav",
-        "reference_text": "你可知为什么人们都怕你？"
-    },
-    {
-        "name": "殷夫人",
-        "reference_audio": "example/roles/yin_furen.wav",
-        "reference_text": "出去跟爹娘一起斩妖除魔，为民除害。"
-    },
-    {
-        "name": "后羿",
-        "reference_audio": "example/roles/houyi.wav",
-        "reference_text": "周日被我射熄火了，所以今天是周一。"
-    }
-]
-
-if not os.path.exists(TEMP_DIR):
-    os.makedirs(TEMP_DIR, exist_ok=True)
 
 ROLE_MAPPING = {}
 ROLES = []
 ROLE_INFO_LIST = []
-for i, role in enumerate(ROLE_WAVS):
-    uid = str(i)
-    if role['name'] in ROLES:
-        print(f"{role['name']}角色已存在")
-        continue
-    try:
-        with open(role["reference_audio"], "rb") as f:
-            audio_bytes = f.read()
-        # 将二进制音频数据转换为 base64 字符串
-        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
-    except Exception as e:
-        print(f"读取{role['name']}音频失败：", e)
-        continue
-    ROLES.append(role['name'])
-    ROLE_INFO_LIST.append({
-        "role_id": uid,
-        "name": role['name']
-    })
-    ROLE_MAPPING[uid] = {
-        "reference_text": role["reference_text"],
-        "reference_audio": audio_base64,
-    }
+
+
+def load_roles(role_dir: str):
+    if not os.path.exists(role_dir):
+        logger.warning("当前角色目录不存在，将无法使用角色克隆功能！")
+        return
+
+    role_list = os.listdir(role_dir)
+    for i, role in enumerate(role_list):
+        uid = str(i)
+        if role in ROLES:
+            logger.warning(f"{role}角色已存在")
+            continue
+        try:
+            with open(os.path.join(role_dir, role, "reference_audio.wav"), "rb") as f:
+                audio_bytes = f.read()
+            # 将二进制音频数据转换为 base64 字符串
+            audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+        except Exception as e:
+            logger.warning(f"读取{role}音频失败：", e)
+            continue
+
+        try:
+            role_text = open(os.path.join(role_dir, role, "reference_text.txt"), "r", encoding='utf8').read()
+            role_text = role_text.strip()
+        except Exception as e:
+            logger.warning(f"读取{role}文本失败：", e)
+            continue
+
+        if role_text == "":
+            logger.warning(f"{role}角色文本为空")
+            continue
+
+        ROLES.append(role)
+        ROLE_INFO_LIST.append({
+            "role_id": uid,
+            "name": role
+        })
+        ROLE_MAPPING[uid] = {
+            "reference_text": role_text,
+            "reference_audio": audio_base64,
+        }
 
 
 @app.route('/')
@@ -98,19 +91,21 @@ def generate_voice():
 
     # 调用API
     try:
-        response = requests.post(f"{BASE_URL}/generate_voice", json=payload)
+        response = requests.post(f"{args.backend_url}/generate_voice", json=payload)
         response.raise_for_status()
 
         # 创建临时文件保存音频
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=TEMP_DIR)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=args.audio_dir)
         temp_file.write(response.content)
         temp_file.close()
+
         return jsonify({
             "success": True,
             "message": "语音生成成功",
             "file_path": os.path.basename(temp_file.name)
         })
     except Exception as e:
+        logger.warning(f"请求语音合成接口失败: {str(e)}")
         return jsonify({
             "success": False,
             "message": f"请求失败: {str(e)}"
@@ -128,6 +123,7 @@ def clone_voice():
         audio_bytes = audio_file.read()
         audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
     else:
+        logger.error("用户未上传参考音频文件")
         return jsonify({
             "success": False,
             "message": "未提供参考音频文件"
@@ -145,11 +141,11 @@ def clone_voice():
 
     # 调用API
     try:
-        response = requests.post(f"{BASE_URL}/clone_voice", json=payload)
+        response = requests.post(f"{args.backend_url}/clone_voice", json=payload)
         response.raise_for_status()
 
         # 创建临时文件保存音频
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=TEMP_DIR)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=args.audio_dir)
         temp_file.write(response.content)
         temp_file.close()
 
@@ -159,6 +155,7 @@ def clone_voice():
             "file_path": os.path.basename(temp_file.name)
         })
     except Exception as e:
+        logger.warning(f"请求声音克隆接口失败: {str(e)}")
         return jsonify({
             "success": False,
             "message": f"请求失败: {str(e)}"
@@ -171,6 +168,7 @@ def clone_by_role():
     data = request.form
     role_id = data.get('role_id', None)
     if role_id is None or role_id not in ROLE_MAPPING:
+        logger.warning("用户未提供角色ID或角色ID无效")
         return jsonify({
             "success": False,
             "message": "未提供角色ID或角色ID无效"
@@ -188,11 +186,11 @@ def clone_by_role():
 
     # 调用API
     try:
-        response = requests.post(f"{BASE_URL}/clone_voice", json=payload)
+        response = requests.post(f"{args.backend_url}/clone_voice", json=payload)
         response.raise_for_status()
 
         # 创建临时文件保存音频
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=TEMP_DIR)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=args.audio_dir)
         temp_file.write(response.content)
         temp_file.close()
 
@@ -202,6 +200,7 @@ def clone_by_role():
             "file_path": os.path.basename(temp_file.name)
         })
     except Exception as e:
+        logger.warning(f"角色克隆请求后端接口失败：{e}")
         return jsonify({
             "success": False,
             "message": f"请求失败: {str(e)}"
@@ -211,16 +210,18 @@ def clone_by_role():
 @app.route('/play_audio/<path:file_path>')
 def play_audio(file_path):
     try:
-        file_path = os.path.join(TEMP_DIR, file_path)
+        file_path = os.path.join(args.audio_dir, file_path)
 
         if os.path.exists(file_path):
             return send_file(file_path, mimetype='audio/wav')
         else:
+            logger.warning("请求播放的文件不存在")
             return jsonify({
                 "success": False,
                 "message": "文件不存在"
             }), 404
     except Exception as e:
+        logger.warning(f"播放音频失败: {str(e)}")
         return jsonify({
             "success": False,
             "message": f"播放音频失败: {str(e)}"
@@ -228,4 +229,26 @@ def play_audio(file_path):
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=8001)
+    parser = argparse.ArgumentParser(description="FastSparkTTS 前端")
+    parser.add_argument("--backend_url", type=str, default="http://localhost:8000",
+                        help="FastSparkTTS服务端接口地址")
+    parser.add_argument("--audio_dir", type=str, default="data/audios",
+                        help="保存合成语音临时文件的目录")
+    parser.add_argument("--role_dir", type=str, default="data/roles",
+                        help="存放已有角色信息的目录")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="前端地址")
+    parser.add_argument("--port", type=int, default=8001, help="前端端口")
+    args = parser.parse_args()
+
+    setup_logging()
+
+    logger.info("启动FastSparkTTS前端服务")
+    logger.info(f"Config: {args}")
+
+    if not os.path.exists(args.audio_dir):
+        os.makedirs(args.audio_dir, exist_ok=True)
+        logger.info(f"创建临时文件目录：{args.audio_dir}")
+
+    load_roles(args.role_dir)
+
+    app.run(host=args.host, port=args.port)

@@ -12,6 +12,9 @@ import soundfile as sf
 from ..utils.token_parser import TASK_TOKEN_MAP, GENDER_MAP, LEVELS_MAP
 from .audio_tokenizer import AudioTokenizer
 from .vocoder import VoCoder
+from .logger import get_logger
+
+logger = get_logger()
 
 
 def process_prompt(
@@ -239,8 +242,12 @@ class AsyncFastSparkTTS:
             top_k=top_k,
             **kwargs
         )
+        pred_semantic_tokens = [int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)]
+        if len(pred_semantic_tokens) == 0:
+            logger.error(f"Semantic tokens 预测为空，输入text为：{text}")
+            raise ValueError(f"Semantic tokens 预测为空，输入text为：{text}")
         pred_semantic_ids = (
-            torch.tensor([int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)])
+            torch.tensor(pred_semantic_tokens)
             .unsqueeze(0).to(torch.int32)
         )
         audio = await self.vocoder.async_process(
@@ -328,12 +335,21 @@ class AsyncFastSparkTTS:
             top_k=top_k,
             **kwargs
         )
+        pred_semantic_tokens = [int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)]
+        if len(pred_semantic_tokens):
+            logger.error(f"Semantic tokens 预测为空，输入text为：{text}")
+            raise ValueError(f"Semantic tokens 预测为空。 输入text为：{text}")
         pred_semantic_ids = (
-            torch.tensor([int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)])
+            torch.tensor(pred_semantic_tokens)
             .unsqueeze(0).to(torch.int32)
         )
+        global_tokens = [int(token) for token in re.findall(r"bicodec_global_(\d+)", generated_output)]
+        if len(global_tokens) == 0:
+            logger.error(f"Global tokens 预测为空，输入text为：{text}")
+            raise ValueError(f"Global tokens 预测为空, 输入text为：{text}")
+
         global_token_ids = (
-            torch.tensor([int(token) for token in re.findall(r"bicodec_global_(\d+)", generated_output)])
+            torch.tensor(global_tokens)
             .long()
             .unsqueeze(0)
         )
