@@ -26,6 +26,8 @@ class TorchGenerator(Generator):
             attn_implementation=attn_implementation,
             **kwargs
         )
+        self.model.eval().to(self.device)
+
         super(TorchGenerator, self).__init__(
             tokenizer=model_path,
             max_length=max_length,
@@ -56,7 +58,7 @@ class TorchGenerator(Generator):
         """
         input_ids = self.tokenize(prompt, self.max_length - max_tokens)
 
-        input_ids = torch.LongTensor([input_ids], device=self.device)
+        input_ids = torch.LongTensor([input_ids]).to(self.device)
         generated_ids = self.model.generate(
             input_ids,
             generation_config=GenerationConfig(

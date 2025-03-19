@@ -44,7 +44,7 @@
 pip install -r requirements.txt
 ```
 
-推理引擎安装 (按需求安装一个即可)
+推理引擎安装 (按需求安装一个即可，若是使用torch推理，则可以跳过)
 
 - **vLLM**
 
@@ -91,6 +91,7 @@ cd Fast-Spark-TTS
 
 2. 启动SparkTTS API服务
 
+`engine`可根据自己的环境，选择对应的推理引擎。目前支持`torch`、`vllm`、`sglang`、`llama-cpp`。
 ```bash
 python server.py \
 --model_path Spark-TTS-0.5B \

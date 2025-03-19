@@ -161,6 +161,9 @@ if __name__ == '__main__':
     parser.add_argument("--torch_dtype", type=str, default="auto",
                         choices=['float16', "bfloat16", 'float32', 'auto'],
                         help="torch generator中llm使用的dtype。")
+    parser.add_argument("--cache_implementation", type=str, default=None,
+                        help='将在“generate”中实例化的缓存类的名称，用于更快地解码. 可能设置的值有：static、offloaded_static、sliding_window、hybrid、mamba、quantized。'
+                        )
     parser.add_argument("--batch_size", type=int, default=32, help="音频处理组件单批次处理的最大请求数。")
     parser.add_argument("--wait_timeout", type=float, default=0.01, help="动态批处理请求超时阈值，单位为秒。")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="服务监听地址")
@@ -185,7 +188,8 @@ if __name__ == '__main__':
         llm_gpu_memory_utilization=args.llm_gpu_memory_utilization,
         torch_dtype=args.torch_dtype,
         batch_size=args.batch_size,
-        wait_timeout=args.wait_timeout
+        wait_timeout=args.wait_timeout,
+        cache_implementation=args.cache_implementation
     )
 
     uvicorn.run(app, host=args.host, port=args.port)

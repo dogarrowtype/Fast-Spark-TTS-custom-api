@@ -137,6 +137,7 @@ class AsyncFastSparkTTS:
             llm_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
             torch_dtype: Literal['float16', "bfloat16", 'float32', 'auto'] = "auto",
             llm_gpu_memory_utilization: Optional[float] = 0.6,
+            cache_implementation: Optional[str] = None,
             batch_size: int = 32,
             wait_timeout: float = 0.01,
             **kwargs,
@@ -157,10 +158,10 @@ class AsyncFastSparkTTS:
             wait_timeout:
             **kwargs:
         """
+        self.engine_type = engine
         self.llm_device = self._auto_detect_device(llm_device)
         self.audio_device = self._auto_detect_device(audio_device)
         self.vocoder_device = self._auto_detect_device(vocoder_device)
-        self.engine_type = engine
 
         if engine == "vllm":
             from .generator.vllm_generator import VllmGenerator
@@ -198,6 +199,7 @@ class AsyncFastSparkTTS:
                 device=self.llm_device,
                 attn_implementation=llm_attn_implementation,
                 torch_dtype=torch_dtype,
+                cache_implementation=cache_implementation,
                 **kwargs)
         else:
 
@@ -218,7 +220,10 @@ class AsyncFastSparkTTS:
         )
 
     def _auto_detect_device(self, device: str):
-        if device in ["cpu", "cuda"]:
+        if self.engine_type == 'sglang' and re.match("cuda:\d+", device):
+            logger.warning("sglang目前不支持指定GPU ID，将默认使用第一个GPU。您可以通过设置环境变量CUDA_VISIBLE_DEVICES=0 来指定GPU。")
+            return "cuda"
+        if device in ["cpu", "cuda"] or device.startswith("cuda"):
             return device
         if torch.cuda.is_available():
             return "cuda"
