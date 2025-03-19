@@ -140,8 +140,8 @@ if __name__ == '__main__':
     parser.add_argument("--model_path", type=str, required=True,
                         help="模型路径")
     parser.add_argument("--engine", type=str, required=True,
-                        choices=["llama-cpp", "vllm", "sglang"],
-                        help="引擎类型，如 llama-cpp、vllm 或 sglang")
+                        choices=["llama-cpp", "vllm", "sglang", "torch"],
+                        help="引擎类型，如 llama-cpp、vllm、sglang 或 torch")
     parser.add_argument("--llm_device", type=str, default="auto",
                         help="llm 设备，例如 cpu 或 cuda:0")
     parser.add_argument("--audio_device", type=str, default="auto",
@@ -151,10 +151,16 @@ if __name__ == '__main__':
     parser.add_argument("--wav2vec_attn_implementation", type=str, default="eager",
                         choices=["sdpa", "flash_attention_2", "eager"],
                         help="wav2vec 的 attn_implementation 方式")
+    parser.add_argument("--llm_attn_implementation", type=str, default="eager",
+                        choices=["sdpa", "flash_attention_2", "eager"],
+                        help="torch generator 的 attn_implementation 方式")
     parser.add_argument("--max_length", type=int, default=32768,
                         help="最大生成长度")
     parser.add_argument("--llm_gpu_memory_utilization", type=float, default=0.6,
                         help="vllm和sglang暂用显存比例，单卡可降低该参数")
+    parser.add_argument("--torch_dtype", type=str, default="auto",
+                        choices=['float16', "bfloat16", 'float32', 'auto'],
+                        help="torch generator中llm使用的dtype。")
     parser.add_argument("--batch_size", type=int, default=32, help="音频处理组件单批次处理的最大请求数。")
     parser.add_argument("--wait_timeout", type=float, default=0.01, help="动态批处理请求超时阈值，单位为秒。")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="服务监听地址")
@@ -175,7 +181,9 @@ if __name__ == '__main__':
         vocoder_device=args.vocoder_device,
         engine=args.engine,
         wav2vec_attn_implementation=args.wav2vec_attn_implementation,
+        llm_attn_implementation=args.llm_attn_implementation,
         llm_gpu_memory_utilization=args.llm_gpu_memory_utilization,
+        torch_dtype=args.torch_dtype,
         batch_size=args.batch_size,
         wait_timeout=args.wait_timeout
     )
