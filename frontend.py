@@ -117,7 +117,6 @@ def clone_voice():
     # 从前端获取参数
     data = request.form
     audio_file = request.files.get('reference_audio')
-
     # 读取并编码音频文件
     if audio_file:
         audio_bytes = audio_file.read()
@@ -148,7 +147,6 @@ def clone_voice():
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=args.audio_dir)
         temp_file.write(response.content)
         temp_file.close()
-
         return jsonify({
             "success": True,
             "message": "声音克隆成功",
@@ -193,7 +191,6 @@ def clone_by_role():
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', dir=args.audio_dir)
         temp_file.write(response.content)
         temp_file.close()
-
         return jsonify({
             "success": True,
             "message": "声音克隆成功",

@@ -396,6 +396,47 @@
                 width: 100%;
             }
         }
+
+        /* 添加到样式表末尾 */
+        .timer-container {
+            margin-top: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: rgba(66, 133, 244, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: var(--primary-color);
+            border: 1px solid rgba(66, 133, 244, 0.3);
+        }
+
+        .timer-icon {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .timer-display {
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 500;
+        }
+
+        .processing-time {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #5f6368;
+            text-align: center;
+            padding: 8px;
+            background-color: rgba(0, 0, 0, 0.03);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .processing-time-highlight {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -507,6 +548,10 @@
                 <div id="generate-loading" class="loading">
                     <div class="spinner"></div>
                     <p>正在生成语音，请稍候...</p>
+                    <div class="timer-container">
+                        <i class="fas fa-clock timer-icon"></i>
+                        <span id="generate-timer" class="timer-display">00:00:00</span>
+                    </div>
                 </div>
                 <div class="button-container">
                     <button type="submit">
@@ -516,6 +561,7 @@
             </form>
             <div id="generate-result" class="result-container">
                 <h4>生成结果</h4>
+                <div id="generate-process-time" class="processing-time"></div>
                 <audio id="generate-audio" class="audio-player" controls></audio>
                 <div class="button-container" style="margin-top: 15px;">
                     <button id="generate-download" class="download-btn">
@@ -594,6 +640,10 @@
                 <div id="clone-loading" class="loading">
                     <div class="spinner"></div>
                     <p>正在克隆声音，请稍候...</p>
+                    <div class="timer-container">
+                        <i class="fas fa-clock timer-icon"></i>
+                        <span id="clone-timer" class="timer-display">00:00:00</span>
+                    </div>
                 </div>
                 <div class="button-container">
                     <button type="submit">
@@ -603,6 +653,7 @@
             </form>
             <div id="clone-result" class="result-container">
                 <h4>克隆结果</h4>
+                <div id="clone-process-time" class="processing-time"></div>
                 <audio id="clone-audio" class="audio-player" controls></audio>
                 <div class="button-container" style="margin-top: 15px;">
                     <button id="clone-download" class="download-btn">
@@ -672,6 +723,10 @@
                 <div id="clone-role-loading" class="loading">
                     <div class="spinner"></div>
                     <p>正在克隆声音，请稍候...</p>
+                    <div class="timer-container">
+                        <i class="fas fa-clock timer-icon"></i>
+                        <span id="clone-role-timer" class="timer-display">00:00:00</span>
+                    </div>
                 </div>
                 <div class="button-container">
                     <button type="submit">
@@ -681,6 +736,7 @@
             </form>
             <div id="clone-role-result" class="result-container">
                 <h4>克隆结果</h4>
+                <div id="clone-role-process-time" class="processing-time"></div>
                 <audio id="clone-role-audio" class="audio-player" controls></audio>
                 <div class="button-container" style="margin-top: 15px;">
                     <button id="clone-role-download" class="download-btn">
@@ -771,6 +827,7 @@
     }
 
     // 语音生成表单提交
+    // 修改语音生成表单提交事件
     document.getElementById('generate-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(this);
@@ -778,6 +835,10 @@
         const result = document.getElementById('generate-result');
         loading.style.display = 'block';
         result.style.display = 'none';
+
+        // 开始计时
+        const startTime = startTimer('generate');
+
         try {
             const response = await fetch('/generate_voice', {
                 method: 'POST',
@@ -785,6 +846,9 @@
             });
             const data = await response.json();
             if (data.success) {
+                // 停止计时
+                stopTimer('generate', startTime);
+
                 showAlert('generate', data.message, 'success');
                 const audio = document.getElementById('generate-audio');
                 audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
@@ -797,16 +861,20 @@
                 };
                 result.style.display = 'block';
             } else {
+                // 停止计时
+                stopTimer('generate', startTime);
                 showAlert('generate', data.message, 'error');
             }
         } catch (error) {
+            // 停止计时
+            stopTimer('generate', startTime);
             showAlert('generate', `生成失败: ${error.message}`, 'error');
         } finally {
             loading.style.display = 'none';
         }
     });
 
-    // 声音克隆表单提交
+    // 修改声音克隆表单提交事件
     document.getElementById('clone-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(this);
@@ -818,6 +886,10 @@
         const result = document.getElementById('clone-result');
         loading.style.display = 'block';
         result.style.display = 'none';
+
+        // 开始计时
+        const startTime = startTimer('clone');
+
         try {
             const response = await fetch('/clone_voice', {
                 method: 'POST',
@@ -825,6 +897,9 @@
             });
             const data = await response.json();
             if (data.success) {
+                // 停止计时
+                stopTimer('clone', startTime);
+
                 showAlert('clone', data.message, 'success');
                 const audio = document.getElementById('clone-audio');
                 audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
@@ -837,16 +912,20 @@
                 };
                 result.style.display = 'block';
             } else {
+                // 停止计时
+                stopTimer('clone', startTime);
                 showAlert('clone', data.message, 'error');
             }
         } catch (error) {
+            // 停止计时
+            stopTimer('clone', startTime);
             showAlert('clone', `克隆失败: ${error.message}`, 'error');
         } finally {
             loading.style.display = 'none';
         }
     });
 
-    // 角色克隆表单提交
+    // 修改角色克隆表单提交事件
     document.getElementById('clone-role-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(this);
@@ -854,6 +933,10 @@
         const result = document.getElementById('clone-role-result');
         loading.style.display = 'block';
         result.style.display = 'none';
+
+        // 开始计时
+        const startTime = startTimer('clone-role');
+
         try {
             const response = await fetch('/clone_by_role', {
                 method: 'POST',
@@ -861,6 +944,9 @@
             });
             const data = await response.json();
             if (data.success) {
+                // 停止计时
+                stopTimer('clone-role', startTime);
+
                 showAlert('clone-role', data.message, 'success');
                 const audio = document.getElementById('clone-role-audio');
                 audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
@@ -873,9 +959,13 @@
                 };
                 result.style.display = 'block';
             } else {
+                // 停止计时
+                stopTimer('clone-role', startTime);
                 showAlert('clone-role', data.message, 'error');
             }
         } catch (error) {
+            // 停止计时
+            stopTimer('clone-role', startTime);
             showAlert('clone-role', `角色克隆失败: ${error.message}`, 'error');
         } finally {
             loading.style.display = 'none';
@@ -911,6 +1001,68 @@
             updateRangeValue(input);
         });
     });
+    // 计时器相关函数
+    let timerIntervals = {};
+
+    function startTimer(prefix) {
+        const timerElement = document.getElementById(`${prefix}-timer`);
+        let seconds = 0;
+
+        // 清除之前的计时器（如果存在）
+        if (timerIntervals[prefix]) {
+            clearInterval(timerIntervals[prefix]);
+        }
+
+        // 重置计时器显示
+        timerElement.textContent = '00:00:00';
+
+        // 开始新的计时器
+        const startTime = new Date().getTime();
+        timerIntervals[prefix] = setInterval(() => {
+            seconds++;
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+
+            timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }, 1000);
+
+        // 返回开始时间，用于计算总处理时间
+        return startTime;
+    }
+
+    function stopTimer(prefix, startTime) {
+        // 停止计时器
+        if (timerIntervals[prefix]) {
+            clearInterval(timerIntervals[prefix]);
+            delete timerIntervals[prefix];
+        }
+
+        // 计算总处理时间
+        const endTime = new Date().getTime();
+        const totalTime = (endTime - startTime) / 1000; // 转换为秒
+
+        // 格式化处理时间
+        const hours = Math.floor(totalTime / 3600);
+        const minutes = Math.floor((totalTime % 3600) / 60);
+        const seconds = Math.floor(totalTime % 60);
+        const milliseconds = Math.floor((totalTime - Math.floor(totalTime)) * 1000);
+
+        let timeString = '';
+        if (hours > 0) {
+            timeString += `${hours}小时`;
+        }
+        if (minutes > 0 || hours > 0) {
+            timeString += `${minutes}分`;
+        }
+        timeString += `${seconds}.${milliseconds.toString().padStart(3, '0')}秒`;
+
+        // 显示处理时间
+        const timeElement = document.getElementById(`${prefix}-process-time`);
+        timeElement.innerHTML = `处理耗时: <span class="processing-time-highlight">${timeString}</span>`;
+
+        return timeString;
+    }
 </script>
 </body>
 </html>
