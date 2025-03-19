@@ -132,8 +132,10 @@ class AsyncFastSparkTTS:
             llm_device: Literal["cpu", "cuda", "auto"] | str = "auto",
             audio_device: Literal["cpu", "cuda", "auto"] | str = "auto",
             vocoder_device: Literal["cpu", "cuda", "auto"] | str = "auto",
-            engine: Literal["vllm", "llama-cpp", "sglang"] = "llama-cpp",
+            engine: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
             wav2vec_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
+            llm_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
+            torch_dtype: Literal['float16', "bfloat16", 'float32', 'auto'] = "auto",
             llm_gpu_memory_utilization: Optional[float] = 0.6,
             batch_size: int = 32,
             wait_timeout: float = 0.01,
@@ -168,6 +170,7 @@ class AsyncFastSparkTTS:
                 device=self.llm_device,
                 max_num_seqs=batch_size,
                 gpu_memory_utilization=llm_gpu_memory_utilization,
+                dtype=torch_dtype,
                 **kwargs)
         elif engine == "llama-cpp":
             from .generator.llama_cpp_generator import LlamaCPPGenerator
@@ -184,8 +187,20 @@ class AsyncFastSparkTTS:
                 device=self.llm_device,
                 gpu_memory_utilization=llm_gpu_memory_utilization,
                 max_running_requests=batch_size,
+                dtype=torch_dtype,
+                **kwargs)
+        elif engine == 'torch':
+            from .generator.torch_generator import TorchGenerator
+
+            self.generator = TorchGenerator(
+                model_path=os.path.join(model_path, "LLM"),
+                max_length=max_length,
+                device=self.llm_device,
+                attn_implementation=llm_attn_implementation,
+                torch_dtype=torch_dtype,
                 **kwargs)
         else:
+
             raise ValueError(f"Unknown backend: {engine}")
 
         self.audio_tokenizer = AudioTokenizer(
@@ -244,8 +259,8 @@ class AsyncFastSparkTTS:
         )
         pred_semantic_tokens = [int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)]
         if len(pred_semantic_tokens) == 0:
-            logger.error(f"Semantic tokens 预测为空，输入text为：{text}")
-            raise ValueError(f"Semantic tokens 预测为空，输入text为：{text}")
+            logger.error(f"Semantic tokens 预测为空，输入text为：{text}，llm输出为：{generated_output}")
+            raise ValueError(f"Semantic tokens 预测为空，输入text为：{text}，llm输出为：{generated_output}")
         pred_semantic_ids = (
             torch.tensor(pred_semantic_tokens)
             .unsqueeze(0).to(torch.int32)
@@ -336,17 +351,17 @@ class AsyncFastSparkTTS:
             **kwargs
         )
         pred_semantic_tokens = [int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)]
-        if len(pred_semantic_tokens):
-            logger.error(f"Semantic tokens 预测为空，输入text为：{text}")
-            raise ValueError(f"Semantic tokens 预测为空。 输入text为：{text}")
+        if len(pred_semantic_tokens) == 0:
+            logger.error(f"Semantic tokens 预测为空，输入text为：{text}，llm输出为：{generated_output}")
+            raise ValueError(f"Semantic tokens 预测为空。 输入text为：{text}，llm输出为：{generated_output}")
         pred_semantic_ids = (
             torch.tensor(pred_semantic_tokens)
             .unsqueeze(0).to(torch.int32)
         )
         global_tokens = [int(token) for token in re.findall(r"bicodec_global_(\d+)", generated_output)]
         if len(global_tokens) == 0:
-            logger.error(f"Global tokens 预测为空，输入text为：{text}")
-            raise ValueError(f"Global tokens 预测为空, 输入text为：{text}")
+            logger.error(f"Global tokens 预测为空，输入text为：{text}，llm输出为：{generated_output}")
+            raise ValueError(f"Global tokens 预测为空, 输入text为：{text}，llm输出为：{generated_output}")
 
         global_token_ids = (
             torch.tensor(global_tokens)

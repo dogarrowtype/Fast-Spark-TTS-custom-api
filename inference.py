@@ -32,14 +32,26 @@ def prepare_engine():
     # )
 
     # llama-cpp
+    # engine = AsyncFastSparkTTS(
+    #     model_path="Spark-TTS-0.5B",
+    #     max_length=32768,
+    #     llm_device="cpu",
+    #     audio_device="cpu",
+    #     vocoder_device="cpu",
+    #     engine="llama-cpp",
+    #     wav2vec_attn_implementation="eager"
+    # )
+
+    # torch
     engine = AsyncFastSparkTTS(
-        model_path="Spark-TTS-0.5B",
+        model_path="SparkTTS-0.5B",
         max_length=32768,
         llm_device="cpu",
         audio_device="cpu",
         vocoder_device="cpu",
-        engine="llama-cpp",
-        wav2vec_attn_implementation="eager"
+        engine="torch",
+        wav2vec_attn_implementation="eager",
+        llm_attn_implementation="eager"
     )
     return engine
 
@@ -48,8 +60,8 @@ def generate_voice(engine: AsyncFastSparkTTS):
     wav = engine.generate_voice(
         "我是无敌的小可爱。",
         gender="female",
-        temperature=0.2,
-        top_p=0.9,
+        temperature=0.6,
+        top_p=0.95,
         top_k=50,
         max_tokens=512
     )
@@ -60,8 +72,8 @@ async def async_generate_voice(engine: AsyncFastSparkTTS):
     wav = await engine.async_generate_voice(
         "我是无敌的小可爱。",
         gender="female",
-        temperature=0.2,
-        top_p=0.9,
+        temperature=0.6,
+        top_p=0.95,
         top_k=50,
         max_tokens=512
     )
@@ -76,8 +88,8 @@ def clone_voice(engine: AsyncFastSparkTTS):
         text=text,
         reference_audio="data/roles/赞助商/reference_audio.wav",
         reference_text=reference_text,
-        temperature=0.2,
-        top_p=0.9,
+        temperature=0.6,
+        top_p=0.95,
         top_k=50,
         max_tokens=512
     )
@@ -92,8 +104,8 @@ async def async_clone_voice(engine: AsyncFastSparkTTS):
         text=text,
         reference_audio="data/roles/赞助商/reference_audio.wav",
         reference_text=reference_text,
-        temperature=0.2,
-        top_p=0.9,
+        temperature=0.6,
+        top_p=0.95,
         top_k=50,
         max_tokens=512
     )
