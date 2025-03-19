@@ -1,832 +1,916 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FastSparkTTS语音合成与克隆平台</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-  <style>
-    :root {
-      --primary-color: #4285f4;
-      --secondary-color: #34a853;
-      --accent-color: #ea4335;
-      --background-color: #f8f9fa;
-      --card-background: #ffffff;
-      --text-color: #202124;
-      --border-color: #dadce0;
-    }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    body {
-      background-color: var(--background-color);
-      color: var(--text-color);
-      padding: 0;
-      margin: 0;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .header-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .header-text {
-      flex: 1;
-      min-width: 300px;
-    }
-    .subtitle {
-      margin-top: 10px;
-      margin-bottom: 0;
-      opacity: 0.9;
-    }
-    .github-link {
-      margin-top: 15px;
-      margin-left: 20px;
-    }
-    .github-button {
-      display: inline-flex;
-      align-items: center;
-      background-color: rgba(255, 255, 255, 0.2);
-      color: white;
-      text-decoration: none;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-    }
-    .github-button:hover {
-      background-color: rgba(255, 255, 255, 0.3);
-      transform: translateY(-2px);
-    }
-    .github-button i {
-      margin-right: 8px;
-      font-size: 18px;
-    }
-    @media (max-width: 768px) {
-      .header-content {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .github-link {
-        margin-left: 0;
-        align-self: flex-start;
-      }
-    }
-    header {
-      background-color: var(--primary-color);
-      color: white;
-      padding: 20px 0;
-      margin-bottom: 30px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-    header h1 {
-      text-align: center;
-      font-size: 2.2em;
-    }
-    header p {
-      text-align: center;
-      opacity: 0.9;
-      margin-top: 10px;
-    }
-    .tabs {
-      display: flex;
-      margin-bottom: 30px;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    }
-    .tab {
-      flex: 1;
-      padding: 15px;
-      text-align: center;
-      background-color: #e8eaed;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-weight: 500;
-      border: none;
-      outline: none;
-    }
-    .tab.active {
-      background-color: var(--primary-color);
-      color: white;
-    }
-    .tab-content {
-      display: none;
-      animation: fadeIn 0.5s;
-    }
-    .tab-content.active {
-      display: block;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    .card {
-      background-color: var(--card-background);
-      border-radius: 12px;
-      padding: 25px;
-      margin-bottom: 30px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    }
-    .card h3 {
-      margin-bottom: 20px;
-      color: var(--primary-color);
-      font-size: 1.5em;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 10px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-    }
-    input[type="text"],
-    input[type="number"],
-    select,
-    textarea {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      font-size: 16px;
-      transition: border 0.3s ease;
-    }
-    input[type="text"]:focus,
-    input[type="number"]:focus,
-    select:focus,
-    textarea:focus {
-      border-color: var(--primary-color);
-      outline: none;
-    }
-    textarea {
-      min-height: 100px;
-      resize: vertical;
-    }
-    .range-control {
-      display: flex;
-      align-items: center;
-    }
-    .range-control input[type="range"] {
-      flex: 1;
-      margin-right: 10px;
-    }
-    .range-control span {
-      min-width: 50px;
-      text-align: right;
-    }
-    button {
-      background-color: var(--primary-color);
-      color: white;
-      padding: 12px 25px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: 500;
-      transition: background-color 0.3s ease;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    button:hover {
-      background-color: #3367d6;
-    }
-    button i {
-      margin-right: 8px;
-    }
-    .button-container {
-      text-align: center;
-      margin-top: 20px;
-    }
-    .upload-container {
-      border: 2px dashed var(--border-color);
-      padding: 20px;
-      border-radius: 8px;
-      text-align: center;
-      margin-bottom: 20px;
-      position: relative;
-      transition: all 0.3s ease;
-    }
-    .upload-container:hover {
-      border-color: var(--primary-color);
-    }
-    .upload-container input[type="file"] {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-    }
-    .upload-icon {
-      font-size: 2em;
-      color: var(--primary-color);
-      margin-bottom: 10px;
-    }
-    .upload-text {
-      margin-bottom: 10px;
-      color: #5f6368;
-    }
-    .file-name {
-      color: var(--primary-color);
-      font-weight: 500;
-      margin-top: 5px;
-    }
-    .upload-container.has-file {
-      border-color: var(--secondary-color);
-      background-color: rgba(52, 168, 83, 0.05);
-    }
-    .alert {
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      display: none;
-      animation: fadeIn 0.5s;
-    }
-    .alert-success {
-      background-color: rgba(52, 168, 83, 0.15);
-      border: 1px solid rgba(52, 168, 83, 0.3);
-      color: #2e7d32;
-    }
-    .alert-error {
-      background-color: rgba(234, 67, 53, 0.15);
-      border: 1px solid rgba(234, 67, 53, 0.3);
-      color: #c62828;
-    }
-    .result-container {
-      display: none;
-      margin-top: 30px;
-      animation: fadeIn 0.5s;
-    }
-    .audio-player {
-      width: 100%;
-      margin-top: 10px;
-    }
-    .loading {
-      display: none;
-      text-align: center;
-      margin: 20px 0;
-    }
-    .spinner {
-      border: 4px solid rgba(0, 0, 0, 0.1);
-      border-radius: 50%;
-      border-top: 4px solid var(--primary-color);
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 15px;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .advanced-options {
-      margin-top: 30px;
-      border-top: 1px solid var(--border-color);
-      padding-top: 20px;
-    }
-    .advanced-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      margin-bottom: 15px;
-    }
-    .advanced-content {
-      display: none;
-    }
-    .advanced-content.show {
-      display: block;
-      animation: fadeIn 0.5s;
-    }
-    footer {
-      text-align: center;
-      margin-top: 50px;
-      padding: 20px 0;
-      border-top: 1px solid var(--border-color);
-      color: #5f6368;
-    }
-    @media (max-width: 768px) {
-      .container {
-        padding: 15px;
-      }
-      .card {
-        padding: 15px;
-      }
-      button {
-        width: 100%;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastSparkTTS语音合成与克隆平台</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4285f4;
+            --secondary-color: #34a853;
+            --accent-color: #ea4335;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-color: #202124;
+            --border-color: #dadce0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .header-text {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .subtitle {
+            margin-top: 10px;
+            margin-bottom: 0;
+            opacity: 0.9;
+        }
+
+        .github-link {
+            margin-top: 15px;
+            margin-left: 20px;
+        }
+
+        .github-button {
+            display: inline-flex;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .github-button:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .github-button i {
+            margin-right: 8px;
+            font-size: 18px;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .github-link {
+                margin-left: 0;
+                align-self: flex-start;
+            }
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            text-align: center;
+            font-size: 2.2em;
+        }
+
+        header p {
+            text-align: center;
+            opacity: 0.9;
+            margin-top: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background-color: #e8eaed;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            border: none;
+            outline: none;
+        }
+
+        .tab.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .card {
+            background-color: var(--card-background);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .card h3 {
+            margin-bottom: 20px;
+            color: var(--primary-color);
+            font-size: 1.5em;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .range-control {
+            display: flex;
+            align-items: center;
+        }
+
+        .range-control input[type="range"] {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .range-control span {
+            min-width: 50px;
+            text-align: right;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover {
+            background-color: #3367d6;
+        }
+
+        button i {
+            margin-right: 8px;
+        }
+
+        .button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .upload-container {
+            border: 2px dashed var(--border-color);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .upload-container:hover {
+            border-color: var(--primary-color);
+        }
+
+        .upload-container input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .upload-icon {
+            font-size: 2em;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            margin-bottom: 10px;
+            color: #5f6368;
+        }
+
+        .file-name {
+            color: var(--primary-color);
+            font-weight: 500;
+            margin-top: 5px;
+        }
+
+        .upload-container.has-file {
+            border-color: var(--secondary-color);
+            background-color: rgba(52, 168, 83, 0.05);
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        .alert-success {
+            background-color: rgba(52, 168, 83, 0.15);
+            border: 1px solid rgba(52, 168, 83, 0.3);
+            color: #2e7d32;
+        }
+
+        .alert-error {
+            background-color: rgba(234, 67, 53, 0.15);
+            border: 1px solid rgba(234, 67, 53, 0.3);
+            color: #c62828;
+        }
+
+        .result-container {
+            display: none;
+            margin-top: 30px;
+            animation: fadeIn 0.5s;
+        }
+
+        .audio-player {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid var(--primary-color);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .advanced-options {
+            margin-top: 30px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+        }
+
+        .advanced-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        .advanced-content {
+            display: none;
+        }
+
+        .advanced-content.show {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px 0;
+            border-top: 1px solid var(--border-color);
+            color: #5f6368;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-  <header>
+<header>
     <div class="header-content">
-      <div class="header-text">
-        <h1>FastSparkTTS语音合成与克隆平台</h1>
-        <p class="subtitle">基于SparkTTS模型，提供高质量语音合成与声音克隆服务</p>
-      </div>
-      <div class="github-link">
-        <a href="https://github.com/HuiResearch/Fast-Spark-TTS" target="_blank" class="github-button">
-          <i class="fab fa-github"></i>
-          <span>GitHub 仓库</span>
-        </a>
-      </div>
+        <div class="header-text">
+            <h1>FastSparkTTS语音合成与克隆平台</h1>
+            <p class="subtitle">基于SparkTTS模型，提供高质量语音合成与声音克隆服务</p>
+        </div>
+        <div class="github-link">
+            <a href="https://github.com/HuiResearch/Fast-Spark-TTS" target="_blank" class="github-button">
+                <i class="fab fa-github"></i>
+                <span>GitHub 仓库</span>
+            </a>
+        </div>
     </div>
-  </header>
+</header>
 
-  <div class="container">
+<div class="container">
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('generate')" data-tab="generate">
-        <i class="fas fa-microphone"></i> 语音合成
-      </button>
-      <button class="tab" onclick="switchTab('clone')" data-tab="clone">
-        <i class="fas fa-copy"></i> 声音克隆
-      </button>
-      <button class="tab" onclick="switchTab('clone_role')" data-tab="clone_role">
-        <i class="fas fa-user"></i> 角色克隆
-      </button>
+        <button class="tab active" onclick="switchTab('generate')" data-tab="generate">
+            <i class="fas fa-microphone"></i> 语音合成
+        </button>
+        <button class="tab" onclick="switchTab('clone')" data-tab="clone">
+            <i class="fas fa-copy"></i> 声音克隆
+        </button>
+        <button class="tab" onclick="switchTab('clone_role')" data-tab="clone_role">
+            <i class="fas fa-user"></i> 角色克隆
+        </button>
     </div>
 
     <!-- 语音合成 -->
     <div id="generate-tab" class="tab-content active">
-      <div class="card">
-        <h3>文本转语音</h3>
-        <div id="generate-alert" class="alert"></div>
-        <form id="generate-form">
-          <div class="form-group">
-            <label for="generate-text">输入文本</label>
-            <textarea id="generate-text" name="text" placeholder="请输入要转换为语音的文本内容..." required>身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。</textarea>
-          </div>
-          <div class="form-group">
-            <label for="generate-gender">性别</label>
-            <select id="generate-gender" name="gender">
-              <option value="male">男性</option>
-              <option value="female">女性</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="generate-pitch">音调</label>
-            <select id="generate-pitch" name="pitch">
-              <option value="very_low">极低</option>
-              <option value="low">低</option>
-              <option value="moderate" selected>中</option>
-              <option value="high">高</option>
-              <option value="very_high">极高</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="generate-speed">语速</label>
-            <select id="generate-speed" name="speed">
-              <option value="very_low">极慢</option>
-              <option value="low">慢</option>
-              <option value="moderate" selected>中</option>
-              <option value="high">快</option>
-              <option value="very_high">极快</option>
-            </select>
-          </div>
-          <div class="advanced-options">
-            <div class="advanced-header" onclick="toggleAdvanced('generate-advanced')">
-              <h4>生成参数设置</h4>
-              <i id="generate-advanced-icon" class="fas fa-chevron-down"></i>
+        <div class="card">
+            <h3>文本转语音</h3>
+            <div id="generate-alert" class="alert"></div>
+            <form id="generate-form">
+                <div class="form-group">
+                    <label for="generate-text">输入文本</label>
+                    <textarea id="generate-text" name="text" placeholder="请输入要转换为语音的文本内容..." required>身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="generate-gender">性别</label>
+                    <select id="generate-gender" name="gender">
+                        <option value="male">男性</option>
+                        <option value="female">女性</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="generate-pitch">音调</label>
+                    <select id="generate-pitch" name="pitch">
+                        <option value="very_low">极低</option>
+                        <option value="low">低</option>
+                        <option value="moderate" selected>中</option>
+                        <option value="high">高</option>
+                        <option value="very_high">极高</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="generate-speed">语速</label>
+                    <select id="generate-speed" name="speed">
+                        <option value="very_low">极慢</option>
+                        <option value="low">慢</option>
+                        <option value="moderate" selected>中</option>
+                        <option value="high">快</option>
+                        <option value="very_high">极快</option>
+                    </select>
+                </div>
+                <div class="advanced-options">
+                    <div class="advanced-header" onclick="toggleAdvanced('generate-advanced')">
+                        <h4>生成参数设置</h4>
+                        <i id="generate-advanced-icon" class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="generate-advanced" class="advanced-content">
+                        <div class="form-group">
+                            <label for="generate-temperature">Temperature</label>
+                            <div class="range-control">
+                                <input type="range" id="generate-temperature" name="temperature" min="0" max="1"
+                                       step="0.1" value="0.6" oninput="updateRangeValue(this)">
+                                <span id="generate-temperature-value">0.6</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="generate-top-p">Top P</label>
+                            <div class="range-control">
+                                <input type="range" id="generate-top-p" name="top_p" min="0" max="1" step="0.05"
+                                       value="0.95" oninput="updateRangeValue(this)">
+                                <span id="generate-top-p-value">0.95</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="generate-top-k">Top K</label>
+                            <div class="range-control">
+                                <input type="range" id="generate-top-k" name="top_k" min="1" max="100" step="1"
+                                       value="50" oninput="updateRangeValue(this)">
+                                <span id="generate-top-k-value">50</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="generate-max-tokens">Max Tokens</label>
+                            <div class="range-control">
+                                <input type="range" id="generate-max-tokens" name="max_tokens" min="64" max="4096"
+                                       step="8" value="2048" oninput="updateRangeValue(this)">
+                                <span id="generate-max-tokens-value">2048</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="generate-loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>正在生成语音，请稍候...</p>
+                </div>
+                <div class="button-container">
+                    <button type="submit">
+                        <i class="fas fa-play"></i> 生成语音
+                    </button>
+                </div>
+            </form>
+            <div id="generate-result" class="result-container">
+                <h4>生成结果</h4>
+                <audio id="generate-audio" class="audio-player" controls></audio>
+                <div class="button-container" style="margin-top: 15px;">
+                    <button id="generate-download" class="download-btn">
+                        <i class="fas fa-download"></i> 下载音频
+                    </button>
+                </div>
             </div>
-            <div id="generate-advanced" class="advanced-content">
-              <div class="form-group">
-                <label for="generate-temperature">Temperature</label>
-                <div class="range-control">
-                  <input type="range" id="generate-temperature" name="temperature" min="0" max="1" step="0.1" value="0.6" oninput="updateRangeValue(this)">
-                  <span id="generate-temperature-value">0.6</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="generate-top-p">Top P</label>
-                <div class="range-control">
-                  <input type="range" id="generate-top-p" name="top_p" min="0" max="1" step="0.05" value="0.95" oninput="updateRangeValue(this)">
-                  <span id="generate-top-p-value">0.95</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="generate-top-k">Top K</label>
-                <div class="range-control">
-                  <input type="range" id="generate-top-k" name="top_k" min="1" max="100" step="1" value="50" oninput="updateRangeValue(this)">
-                  <span id="generate-top-k-value">50</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="generate-max-tokens">Max Tokens</label>
-                <div class="range-control">
-                  <input type="range" id="generate-max-tokens" name="max_tokens" min="64" max="4096" step="8" value="2048" oninput="updateRangeValue(this)">
-                  <span id="generate-max-tokens-value">2048</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div id="generate-loading" class="loading">
-            <div class="spinner"></div>
-            <p>正在生成语音，请稍候...</p>
-          </div>
-          <div class="button-container">
-            <button type="submit">
-              <i class="fas fa-play"></i> 生成语音
-            </button>
-          </div>
-        </form>
-        <div id="generate-result" class="result-container">
-          <h4>生成结果</h4>
-          <audio id="generate-audio" class="audio-player" controls></audio>
-          <div class="button-container" style="margin-top: 15px;">
-            <button id="generate-download" class="download-btn">
-              <i class="fas fa-download"></i> 下载音频
-            </button>
-          </div>
         </div>
-      </div>
     </div>
 
     <!-- 声音克隆 -->
     <div id="clone-tab" class="tab-content">
-      <div class="card">
-        <h3>声音克隆</h3>
-        <div id="clone-alert" class="alert"></div>
-        <form id="clone-form">
-          <div class="form-group">
-            <label for="clone-text">目标文本</label>
-            <textarea id="clone-text" name="text" placeholder="请输入要用克隆声音说出的文本内容..." required>身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。</textarea>
-          </div>
-          <div class="form-group">
-            <label for="clone-reference-text">参考音频文本内容</label>
-            <textarea id="clone-reference-text" name="reference_text" placeholder="请输入参考音频的文本内容..." required></textarea>
-          </div>
-          <div class="form-group">
-            <label>参考音频文件</label>
-            <div id="clone-upload" class="upload-container">
-              <i class="fas fa-cloud-upload-alt upload-icon"></i>
-              <p class="upload-text">点击或拖拽文件到此处上传参考音频文件（WAV格式）</p>
-              <input type="file" id="clone-reference-audio" name="reference_audio" accept=".wav" required onchange="handleFileSelect(this)">
-              <p id="clone-file-name" class="file-name"></p>
+        <div class="card">
+            <h3>声音克隆</h3>
+            <div id="clone-alert" class="alert"></div>
+            <form id="clone-form">
+                <div class="form-group">
+                    <label for="clone-text">目标文本</label>
+                    <textarea id="clone-text" name="text" placeholder="请输入要用克隆声音说出的文本内容..." required>身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="clone-reference-text">参考音频文本内容(可选填)</label>
+                    <textarea id="clone-reference-text" name="reference_text"
+                              placeholder="请输入参考音频的文本内容..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>参考音频文件</label>
+                    <div id="clone-upload" class="upload-container">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <p class="upload-text">点击或拖拽文件到此处上传参考音频文件（WAV格式）</p>
+                        <input type="file" id="clone-reference-audio" name="reference_audio" accept=".wav" required
+                               onchange="handleFileSelect(this)">
+                        <p id="clone-file-name" class="file-name"></p>
+                    </div>
+                </div>
+                <div class="advanced-options">
+                    <div class="advanced-header" onclick="toggleAdvanced('clone-advanced')">
+                        <h4>生成参数设置</h4>
+                        <i id="clone-advanced-icon" class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="clone-advanced" class="advanced-content">
+                        <div class="form-group">
+                            <label for="clone-temperature">Temperature</label>
+                            <div class="range-control">
+                                <input type="range" id="clone-temperature" name="temperature" min="0" max="1" step="0.1"
+                                       value="0.6" oninput="updateRangeValue(this)">
+                                <span id="clone-temperature-value">0.6</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="clone-top-p">Top P</label>
+                            <div class="range-control">
+                                <input type="range" id="clone-top-p" name="top_p" min="0" max="1" step="0.05"
+                                       value="0.95" oninput="updateRangeValue(this)">
+                                <span id="clone-top-p-value">0.95</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="clone-top-k">Top K</label>
+                            <div class="range-control">
+                                <input type="range" id="clone-top-k" name="top_k" min="1" max="100" step="1" value="50"
+                                       oninput="updateRangeValue(this)">
+                                <span id="clone-top-k-value">50</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="clone-max-tokens">Max Tokens</label>
+                            <div class="range-control">
+                                <input type="range" id="clone-max-tokens" name="max_tokens" min="64" max="4096" step="8"
+                                       value="2048" oninput="updateRangeValue(this)">
+                                <span id="clone-max-tokens-value">2048</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="clone-loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>正在克隆声音，请稍候...</p>
+                </div>
+                <div class="button-container">
+                    <button type="submit">
+                        <i class="fas fa-copy"></i> 克隆声音
+                    </button>
+                </div>
+            </form>
+            <div id="clone-result" class="result-container">
+                <h4>克隆结果</h4>
+                <audio id="clone-audio" class="audio-player" controls></audio>
+                <div class="button-container" style="margin-top: 15px;">
+                    <button id="clone-download" class="download-btn">
+                        <i class="fas fa-download"></i> 下载音频
+                    </button>
+                </div>
             </div>
-          </div>
-          <div class="advanced-options">
-            <div class="advanced-header" onclick="toggleAdvanced('clone-advanced')">
-              <h4>生成参数设置</h4>
-              <i id="clone-advanced-icon" class="fas fa-chevron-down"></i>
-            </div>
-            <div id="clone-advanced" class="advanced-content">
-              <div class="form-group">
-                <label for="clone-temperature">Temperature</label>
-                <div class="range-control">
-                  <input type="range" id="clone-temperature" name="temperature" min="0" max="1" step="0.1" value="0.6" oninput="updateRangeValue(this)">
-                  <span id="clone-temperature-value">0.6</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="clone-top-p">Top P</label>
-                <div class="range-control">
-                  <input type="range" id="clone-top-p" name="top_p" min="0" max="1" step="0.05" value="0.95" oninput="updateRangeValue(this)">
-                  <span id="clone-top-p-value">0.95</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="clone-top-k">Top K</label>
-                <div class="range-control">
-                  <input type="range" id="clone-top-k" name="top_k" min="1" max="100" step="1" value="50" oninput="updateRangeValue(this)">
-                  <span id="clone-top-k-value">50</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="clone-max-tokens">Max Tokens</label>
-                <div class="range-control">
-                  <input type="range" id="clone-max-tokens" name="max_tokens" min="64" max="4096" step="8" value="2048" oninput="updateRangeValue(this)">
-                  <span id="clone-max-tokens-value">2048</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div id="clone-loading" class="loading">
-            <div class="spinner"></div>
-            <p>正在克隆声音，请稍候...</p>
-          </div>
-          <div class="button-container">
-            <button type="submit">
-              <i class="fas fa-copy"></i> 克隆声音
-            </button>
-          </div>
-        </form>
-        <div id="clone-result" class="result-container">
-          <h4>克隆结果</h4>
-          <audio id="clone-audio" class="audio-player" controls></audio>
-          <div class="button-container" style="margin-top: 15px;">
-            <button id="clone-download" class="download-btn">
-              <i class="fas fa-download"></i> 下载音频
-            </button>
-          </div>
         </div>
-      </div>
     </div>
 
     <!-- 角色克隆 -->
     <div id="clone_role-tab" class="tab-content">
-      <div class="card">
-        <h3>角色克隆</h3>
-        <div id="clone-role-alert" class="alert"></div>
-        <form id="clone-role-form">
-          <div class="form-group">
-            <label for="clone-role-text">目标文本</label>
-            <textarea id="clone-role-text" name="text" placeholder="请输入目标文本..." required>身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。</textarea>
-          </div>
-          <div class="form-group">
-            <label for="clone-role-select">选择音频角色</label>
-            <select id="clone-role-select" name="role_id" required>
-              <option value="">加载中...</option>
-            </select>
-          </div>
-          <div class="advanced-options">
-            <div class="advanced-header" onclick="toggleAdvanced('clone-role-advanced')">
-              <h4>生成参数设置</h4>
-              <i id="clone-role-advanced-icon" class="fas fa-chevron-down"></i>
+        <div class="card">
+            <h3>角色克隆</h3>
+            <div id="clone-role-alert" class="alert"></div>
+            <form id="clone-role-form">
+                <div class="form-group">
+                    <label for="clone-role-text">目标文本</label>
+                    <textarea id="clone-role-text" name="text" placeholder="请输入目标文本..." required>身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="clone-role-select">选择音频角色</label>
+                    <select id="clone-role-select" name="role_id" required>
+                        <option value="">加载中...</option>
+                    </select>
+                </div>
+                <div class="advanced-options">
+                    <div class="advanced-header" onclick="toggleAdvanced('clone-role-advanced')">
+                        <h4>生成参数设置</h4>
+                        <i id="clone-role-advanced-icon" class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="clone-role-advanced" class="advanced-content">
+                        <div class="form-group">
+                            <label for="clone-role-temperature">Temperature</label>
+                            <div class="range-control">
+                                <input type="range" id="clone-role-temperature" name="temperature" min="0" max="1"
+                                       step="0.1" value="0.6" oninput="updateRangeValue(this)">
+                                <span id="clone-role-temperature-value">0.6</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="clone-role-top-p">Top P</label>
+                            <div class="range-control">
+                                <input type="range" id="clone-role-top-p" name="top_p" min="0" max="1" step="0.05"
+                                       value="0.95" oninput="updateRangeValue(this)">
+                                <span id="clone-role-top-p-value">0.95</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="clone-role-top-k">Top K</label>
+                            <div class="range-control">
+                                <input type="range" id="clone-role-top-k" name="top_k" min="1" max="100" step="1"
+                                       value="50" oninput="updateRangeValue(this)">
+                                <span id="clone-role-top-k-value">50</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="clone-role-max-tokens">Max Tokens</label>
+                            <div class="range-control">
+                                <input type="range" id="clone-role-max-tokens" name="max_tokens" min="64" max="4096"
+                                       step="8" value="2048" oninput="updateRangeValue(this)">
+                                <span id="clone-role-max-tokens-value">2048</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="clone-role-loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>正在克隆声音，请稍候...</p>
+                </div>
+                <div class="button-container">
+                    <button type="submit">
+                        <i class="fas fa-copy"></i> 角色克隆
+                    </button>
+                </div>
+            </form>
+            <div id="clone-role-result" class="result-container">
+                <h4>克隆结果</h4>
+                <audio id="clone-role-audio" class="audio-player" controls></audio>
+                <div class="button-container" style="margin-top: 15px;">
+                    <button id="clone-role-download" class="download-btn">
+                        <i class="fas fa-download"></i> 下载音频
+                    </button>
+                </div>
             </div>
-            <div id="clone-role-advanced" class="advanced-content">
-              <div class="form-group">
-                <label for="clone-role-temperature">Temperature</label>
-                <div class="range-control">
-                  <input type="range" id="clone-role-temperature" name="temperature" min="0" max="1" step="0.1" value="0.6" oninput="updateRangeValue(this)">
-                  <span id="clone-role-temperature-value">0.6</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="clone-role-top-p">Top P</label>
-                <div class="range-control">
-                  <input type="range" id="clone-role-top-p" name="top_p" min="0" max="1" step="0.05" value="0.95" oninput="updateRangeValue(this)">
-                  <span id="clone-role-top-p-value">0.95</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="clone-role-top-k">Top K</label>
-                <div class="range-control">
-                  <input type="range" id="clone-role-top-k" name="top_k" min="1" max="100" step="1" value="50" oninput="updateRangeValue(this)">
-                  <span id="clone-role-top-k-value">50</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="clone-role-max-tokens">Max Tokens</label>
-                <div class="range-control">
-                  <input type="range" id="clone-role-max-tokens" name="max_tokens" min="64" max="4096" step="8" value="2048" oninput="updateRangeValue(this)">
-                  <span id="clone-role-max-tokens-value">2048</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div id="clone-role-loading" class="loading">
-            <div class="spinner"></div>
-            <p>正在克隆声音，请稍候...</p>
-          </div>
-          <div class="button-container">
-            <button type="submit">
-              <i class="fas fa-copy"></i> 角色克隆
-            </button>
-          </div>
-        </form>
-        <div id="clone-role-result" class="result-container">
-          <h4>克隆结果</h4>
-          <audio id="clone-role-audio" class="audio-player" controls></audio>
-          <div class="button-container" style="margin-top: 15px;">
-            <button id="clone-role-download" class="download-btn">
-              <i class="fas fa-download"></i> 下载音频
-            </button>
-          </div>
         </div>
-      </div>
     </div>
-  </div>
+</div>
 
-  <footer>
+<footer>
     <div class="container">
-      <p>© 2025 AI语音合成与克隆平台 | 高品质语音技术服务</p>
+        <p>© 2025 AI语音合成与克隆平台 | 高品质语音技术服务</p>
     </div>
-  </footer>
+</footer>
 
-  <script>
+<script>
     // 切换标签页（支持三个模块）
     function switchTab(tabName) {
-      const tabs = document.querySelectorAll('.tab');
-      const tabContents = document.querySelectorAll('.tab-content');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
 
-      tabs.forEach(tab => {
-        if (tab.dataset.tab === tabName) {
-          tab.classList.add('active');
-        } else {
-          tab.classList.remove('active');
+        tabs.forEach(tab => {
+            if (tab.dataset.tab === tabName) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+
+        tabContents.forEach(content => {
+            if (content.id === `${tabName}-tab`) {
+                content.classList.add('active');
+            } else {
+                content.classList.remove('active');
+            }
+        });
+
+        // 若切换到角色克隆模块，则加载可用音频角色
+        if (tabName === 'clone_role') {
+            fetchAudioRoles();
         }
-      });
-
-      tabContents.forEach(content => {
-        if (content.id === `${tabName}-tab`) {
-          content.classList.add('active');
-        } else {
-          content.classList.remove('active');
-        }
-      });
-
-      // 若切换到角色克隆模块，则加载可用音频角色
-      if (tabName === 'clone_role') {
-        fetchAudioRoles();
-      }
     }
 
     // 更新滑块值显示
     function updateRangeValue(input) {
-      document.getElementById(`${input.id}-value`).textContent = input.value;
+        document.getElementById(`${input.id}-value`).textContent = input.value;
     }
 
     // 切换高级选项显示
     function toggleAdvanced(id) {
-      const content = document.getElementById(id);
-      const icon = document.getElementById(`${id}-icon`);
-      content.classList.toggle('show');
-      if (content.classList.contains('show')) {
-        icon.classList.remove('fa-chevron-down');
-        icon.classList.add('fa-chevron-up');
-      } else {
-        icon.classList.remove('fa-chevron-up');
-        icon.classList.add('fa-chevron-down');
-      }
+        const content = document.getElementById(id);
+        const icon = document.getElementById(`${id}-icon`);
+        content.classList.toggle('show');
+        if (content.classList.contains('show')) {
+            icon.classList.remove('fa-chevron-down');
+            icon.classList.add('fa-chevron-up');
+        } else {
+            icon.classList.remove('fa-chevron-up');
+            icon.classList.add('fa-chevron-down');
+        }
     }
 
     // 文件选择处理
     function handleFileSelect(input) {
-      const fileName = input.files[0]?.name || '';
-      const fileNameElement = document.getElementById(`${input.id.split('-')[0]}-file-name`);
-      const uploadContainer = document.getElementById(`${input.id.split('-')[0]}-upload`);
-      if (fileName) {
-        fileNameElement.textContent = `已选择: ${fileName}`;
-        uploadContainer.classList.add('has-file');
-      } else {
-        fileNameElement.textContent = '';
-        uploadContainer.classList.remove('has-file');
-      }
+        const fileName = input.files[0]?.name || '';
+        const fileNameElement = document.getElementById(`${input.id.split('-')[0]}-file-name`);
+        const uploadContainer = document.getElementById(`${input.id.split('-')[0]}-upload`);
+        if (fileName) {
+            fileNameElement.textContent = `已选择: ${fileName}`;
+            uploadContainer.classList.add('has-file');
+        } else {
+            fileNameElement.textContent = '';
+            uploadContainer.classList.remove('has-file');
+        }
     }
 
     // 显示提示信息
     function showAlert(idPrefix, message, type) {
-      const alert = document.getElementById(`${idPrefix}-alert`);
-      alert.textContent = message;
-      alert.className = `alert alert-${type}`;
-      alert.style.display = 'block';
-      setTimeout(() => {
-        alert.style.display = 'none';
-      }, 5000);
+        const alert = document.getElementById(`${idPrefix}-alert`);
+        alert.textContent = message;
+        alert.className = `alert alert-${type}`;
+        alert.style.display = 'block';
+        setTimeout(() => {
+            alert.style.display = 'none';
+        }, 5000);
     }
 
     // 语音生成表单提交
-    document.getElementById('generate-form').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const formData = new FormData(this);
-      const loading = document.getElementById('generate-loading');
-      const result = document.getElementById('generate-result');
-      loading.style.display = 'block';
-      result.style.display = 'none';
-      try {
-        const response = await fetch('/generate_voice', {
-          method: 'POST',
-          body: formData
-        });
-        const data = await response.json();
-        if (data.success) {
-          showAlert('generate', data.message, 'success');
-          const audio = document.getElementById('generate-audio');
-          audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
-          const downloadBtn = document.getElementById('generate-download');
-          downloadBtn.onclick = function() {
-            const link = document.createElement('a');
-            link.href = audio.src;
-            link.download = 'generated_voice.wav';
-            link.click();
-          };
-          result.style.display = 'block';
-        } else {
-          showAlert('generate', data.message, 'error');
+    document.getElementById('generate-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const loading = document.getElementById('generate-loading');
+        const result = document.getElementById('generate-result');
+        loading.style.display = 'block';
+        result.style.display = 'none';
+        try {
+            const response = await fetch('/generate_voice', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                showAlert('generate', data.message, 'success');
+                const audio = document.getElementById('generate-audio');
+                audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
+                const downloadBtn = document.getElementById('generate-download');
+                downloadBtn.onclick = function () {
+                    const link = document.createElement('a');
+                    link.href = audio.src;
+                    link.download = 'generated_voice.wav';
+                    link.click();
+                };
+                result.style.display = 'block';
+            } else {
+                showAlert('generate', data.message, 'error');
+            }
+        } catch (error) {
+            showAlert('generate', `生成失败: ${error.message}`, 'error');
+        } finally {
+            loading.style.display = 'none';
         }
-      } catch (error) {
-        showAlert('generate', `生成失败: ${error.message}`, 'error');
-      } finally {
-        loading.style.display = 'none';
-      }
     });
 
     // 声音克隆表单提交
-    document.getElementById('clone-form').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const formData = new FormData(this);
-      const loading = document.getElementById('clone-loading');
-      const result = document.getElementById('clone-result');
-      loading.style.display = 'block';
-      result.style.display = 'none';
-      try {
-        const response = await fetch('/clone_voice', {
-          method: 'POST',
-          body: formData
-        });
-        const data = await response.json();
-        if (data.success) {
-          showAlert('clone', data.message, 'success');
-          const audio = document.getElementById('clone-audio');
-          audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
-          const downloadBtn = document.getElementById('clone-download');
-          downloadBtn.onclick = function() {
-            const link = document.createElement('a');
-            link.href = audio.src;
-            link.download = 'cloned_voice.wav';
-            link.click();
-          };
-          result.style.display = 'block';
-        } else {
-          showAlert('clone', data.message, 'error');
+    document.getElementById('clone-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        // 如果用户未输入参考文本，则删除reference_text
+        if (!formData.get('reference_text')) {
+            formData.delete('reference_text');
         }
-      } catch (error) {
-        showAlert('clone', `克隆失败: ${error.message}`, 'error');
-      } finally {
-        loading.style.display = 'none';
-      }
+        const loading = document.getElementById('clone-loading');
+        const result = document.getElementById('clone-result');
+        loading.style.display = 'block';
+        result.style.display = 'none';
+        try {
+            const response = await fetch('/clone_voice', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                showAlert('clone', data.message, 'success');
+                const audio = document.getElementById('clone-audio');
+                audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
+                const downloadBtn = document.getElementById('clone-download');
+                downloadBtn.onclick = function () {
+                    const link = document.createElement('a');
+                    link.href = audio.src;
+                    link.download = 'cloned_voice.wav';
+                    link.click();
+                };
+                result.style.display = 'block';
+            } else {
+                showAlert('clone', data.message, 'error');
+            }
+        } catch (error) {
+            showAlert('clone', `克隆失败: ${error.message}`, 'error');
+        } finally {
+            loading.style.display = 'none';
+        }
     });
 
     // 角色克隆表单提交
-    document.getElementById('clone-role-form').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const formData = new FormData(this);
-      const loading = document.getElementById('clone-role-loading');
-      const result = document.getElementById('clone-role-result');
-      loading.style.display = 'block';
-      result.style.display = 'none';
-      try {
-        const response = await fetch('/clone_by_role', {
-          method: 'POST',
-          body: formData
-        });
-        const data = await response.json();
-        if (data.success) {
-          showAlert('clone-role', data.message, 'success');
-          const audio = document.getElementById('clone-role-audio');
-          audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
-          const downloadBtn = document.getElementById('clone-role-download');
-          downloadBtn.onclick = function() {
-            const link = document.createElement('a');
-            link.href = audio.src;
-            link.download = 'cloned_voice.wav';
-            link.click();
-          };
-          result.style.display = 'block';
-        } else {
-          showAlert('clone-role', data.message, 'error');
+    document.getElementById('clone-role-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const loading = document.getElementById('clone-role-loading');
+        const result = document.getElementById('clone-role-result');
+        loading.style.display = 'block';
+        result.style.display = 'none';
+        try {
+            const response = await fetch('/clone_by_role', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                showAlert('clone-role', data.message, 'success');
+                const audio = document.getElementById('clone-role-audio');
+                audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
+                const downloadBtn = document.getElementById('clone-role-download');
+                downloadBtn.onclick = function () {
+                    const link = document.createElement('a');
+                    link.href = audio.src;
+                    link.download = 'cloned_voice.wav';
+                    link.click();
+                };
+                result.style.display = 'block';
+            } else {
+                showAlert('clone-role', data.message, 'error');
+            }
+        } catch (error) {
+            showAlert('clone-role', `角色克隆失败: ${error.message}`, 'error');
+        } finally {
+            loading.style.display = 'none';
         }
-      } catch (error) {
-        showAlert('clone-role', `角色克隆失败: ${error.message}`, 'error');
-      } finally {
-        loading.style.display = 'none';
-      }
     });
 
     // 加载音频角色列表
     function fetchAudioRoles() {
-      fetch('/audio_roles')
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const select = document.getElementById('clone-role-select');
-            select.innerHTML = '';
-            data.roles.forEach(role => {
-              const option = document.createElement('option');
-              option.value = role.role_id;
-              option.textContent = role.name;
-              select.appendChild(option);
+        fetch('/audio_roles')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const select = document.getElementById('clone-role-select');
+                    select.innerHTML = '';
+                    data.roles.forEach(role => {
+                        const option = document.createElement('option');
+                        option.value = role.role_id;
+                        option.textContent = role.name;
+                        select.appendChild(option);
+                    });
+                } else {
+                    showAlert('clone-role', '无法加载音频角色', 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('clone-role', `加载音频角色失败: ${error.message}`, 'error');
             });
-          } else {
-            showAlert('clone-role', '无法加载音频角色', 'error');
-          }
-        })
-        .catch(error => {
-          showAlert('clone-role', `加载音频角色失败: ${error.message}`, 'error');
-        });
     }
 
     // 页面加载时初始化所有滑块值显示
-    document.addEventListener('DOMContentLoaded', function() {
-      document.querySelectorAll('input[type="range"]').forEach(input => {
-        updateRangeValue(input);
-      });
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('input[type="range"]').forEach(input => {
+            updateRangeValue(input);
+        });
     });
-  </script>
+</script>
 </body>
 </html>

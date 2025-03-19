@@ -44,11 +44,11 @@ def load_roles(role_dir: str):
             role_text = role_text.strip()
         except Exception as e:
             logger.warning(f"读取{role}文本失败：", e)
-            continue
+            role_text = None
 
         if role_text == "":
             logger.warning(f"{role}角色文本为空")
-            continue
+            role_text = None
 
         ROLES.append(role)
         ROLE_INFO_LIST.append({
@@ -131,7 +131,7 @@ def clone_voice():
 
     payload = {
         "text": data.get('text', ''),
-        "reference_text": data.get('reference_text', ''),
+        "reference_text": data.get('reference_text', None),
         "reference_audio": audio_base64,
         "temperature": float(data.get('temperature', 0.6)),
         "top_p": float(data.get('top_p', 0.95)),
@@ -176,7 +176,7 @@ def clone_by_role():
 
     payload = {
         "text": data.get('text', ''),
-        "reference_text": ROLE_MAPPING[role_id]['reference_text'],
+        "reference_text": ROLE_MAPPING[role_id].get('reference_text', None),
         "reference_audio": ROLE_MAPPING[role_id]['reference_audio'],
         "temperature": float(data.get('temperature', 0.6)),
         "top_p": float(data.get('top_p', 0.95)),

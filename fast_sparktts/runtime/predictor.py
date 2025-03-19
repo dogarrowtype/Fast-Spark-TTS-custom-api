@@ -41,7 +41,7 @@ def process_prompt(
     )
 
     # Prepare the input tokens for the model
-    if prompt_text is not None:
+    if prompt_text is not None and len(prompt_text) > 0:
         # Include semantic tokens when prompt text is provided
         semantic_tokens = "".join(
             [f"<|bicodec_semantic_{i}|>" for i in semantic_token_ids.squeeze()]
@@ -235,7 +235,7 @@ class AsyncFastSparkTTS:
             text: str,
             reference_wav: np.ndarray,
             reference_wav_len: np.ndarray,
-            reference_text: str,
+            reference_text: Optional[str] = None,
             temperature: float = 0.6,
             top_k: int = 50,
             top_p: float = 0.95,
@@ -284,7 +284,7 @@ class AsyncFastSparkTTS:
             cls,
             text: str,
             reference_audio,
-            reference_text: str,
+            reference_text: Optional[str] = None,
             temperature: float = 0.6,
             top_k: int = 50,
             top_p: float = 0.95,
@@ -313,7 +313,7 @@ class AsyncFastSparkTTS:
             self,
             text: str,
             reference_audio: str,
-            reference_text: str,
+            reference_text: Optional[str] = None,
             temperature: float = 0.6,
             top_k: int = 50,
             top_p: float = 0.95,
@@ -386,7 +386,7 @@ class AsyncFastSparkTTS:
             self,
             text: str,
             reference_audio: str,
-            reference_text: str,
+            reference_text: Optional[str] = None,
             temperature: float = 0.6,
             top_k: int = 50,
             top_p: float = 0.95,

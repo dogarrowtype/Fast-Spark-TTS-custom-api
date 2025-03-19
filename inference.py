@@ -44,14 +44,14 @@ def prepare_engine():
 
     # torch
     engine = AsyncFastSparkTTS(
-        model_path="SparkTTS-0.5B",
+        model_path="Spark-TTS-0.5B",
         max_length=32768,
-        llm_device="cpu",
-        audio_device="cpu",
-        vocoder_device="cpu",
+        llm_device="cuda",
+        audio_device="cuda",
+        vocoder_device="cuda",
         engine="torch",
-        wav2vec_attn_implementation="eager",
-        llm_attn_implementation="eager"
+        wav2vec_attn_implementation="sdpa",
+        llm_attn_implementation="sdpa"
     )
     return engine
 
@@ -87,7 +87,7 @@ def clone_voice(engine: AsyncFastSparkTTS):
     wav = engine.clone_voice(
         text=text,
         reference_audio="data/roles/赞助商/reference_audio.wav",
-        reference_text=reference_text,
+        reference_text=None, # or reference_text=reference_text
         temperature=0.6,
         top_p=0.95,
         top_k=50,
@@ -103,7 +103,7 @@ async def async_clone_voice(engine: AsyncFastSparkTTS):
     wav = await engine.async_clone_voice(
         text=text,
         reference_audio="data/roles/赞助商/reference_audio.wav",
-        reference_text=reference_text,
+        reference_text=None, # or reference_text=reference_text
         temperature=0.6,
         top_p=0.95,
         top_k=50,
@@ -114,8 +114,8 @@ async def async_clone_voice(engine: AsyncFastSparkTTS):
 
 def main():
     engine = prepare_engine()
-    audio = generate_voice(engine)
-    # audio = clone_voice(engine)
+    # audio = generate_voice(engine)
+    audio = clone_voice(engine)
     sf.write("result.wav", audio, 16000, "PCM_16")
 
 

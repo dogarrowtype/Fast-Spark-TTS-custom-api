@@ -8,6 +8,7 @@ import base64
 # 设置服务器地址
 BASE_URL = "http://localhost:8000"
 
+
 def generate_voice():
     text = "身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。"
     payload = {
@@ -28,10 +29,10 @@ def generate_voice():
     else:
         print("请求失败：", response.status_code, response.text)
 
+
 def clone_with_base64():
     # 使用 base64 编码的参考音频
     text = "身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。"
-    reference_text = "吃燕窝就选燕之屋，本节目由26年专注高品质燕窝的燕之屋冠名播出。豆奶牛奶换着喝，营养更均衡，本节目由豆本豆豆奶特约播出。"
 
     reference_audio_path = "data/roles/赞助商/reference_audio.wav"  # 请替换为你本地的参考音频文件路径
     try:
@@ -45,7 +46,7 @@ def clone_with_base64():
 
     payload = {
         "text": text,
-        "reference_text": reference_text,
+        "reference_text": None,
         "reference_audio": audio_base64,
         "temperature": 0.6,
         "top_p": 0.95,
@@ -62,4 +63,4 @@ def clone_with_base64():
 
 
 if __name__ == "__main__":
-    generate_voice()
+    clone_with_base64()

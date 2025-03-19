@@ -3,7 +3,7 @@
 # Author    :Hui Huang
 import argparse
 import base64
-from typing import Literal
+from typing import Literal, Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -44,9 +44,9 @@ class TTSRequest(BaseModel):
 # 定义支持多种方式传入参考音频的请求协议
 class CloneRequest(BaseModel):
     text: str
-    reference_text: str
     # reference_audio 字段既可以是一个 URL，也可以是 base64 编码的音频数据
     reference_audio: str
+    reference_text: Optional[str] = None
     temperature: float = 0.6
     top_k: int = 50
     top_p: float = 0.95
