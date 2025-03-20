@@ -9,3 +9,4 @@ torchaudio==2.5.1
 fastapi
 uvicorn
 httpx
+scipy

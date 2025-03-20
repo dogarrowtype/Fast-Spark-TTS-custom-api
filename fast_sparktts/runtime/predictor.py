@@ -13,6 +13,7 @@ from ..utils.token_parser import TASK_TOKEN_MAP, GENDER_MAP, LEVELS_MAP
 from .audio_tokenizer import AudioTokenizer
 from .vocoder import VoCoder
 from .logger import get_logger
+from scipy.signal import resample
 
 logger = get_logger()
 
@@ -221,7 +222,8 @@ class AsyncFastSparkTTS:
 
     def _auto_detect_device(self, device: str):
         if self.engine_type == 'sglang' and re.match("cuda:\d+", device):
-            logger.warning("sglang目前不支持指定GPU ID，将默认使用第一个GPU。您可以通过设置环境变量CUDA_VISIBLE_DEVICES=0 来指定GPU。")
+            logger.warning(
+                "sglang目前不支持指定GPU ID，将默认使用第一个GPU。您可以通过设置环境变量CUDA_VISIBLE_DEVICES=0 来指定GPU。")
             return "cuda"
         if device in ["cpu", "cuda"] or device.startswith("cuda"):
             return device
@@ -292,7 +294,10 @@ class AsyncFastSparkTTS:
             **kwargs
     ):
         waveform, sr = sf.read(reference_audio)
-        assert sr == 16000, "sample rate hardcoded in server"
+        if sr != 16000:
+            sample_ratio = 16000 / sr
+            waveform = resample(waveform, int(len(waveform) * sample_ratio))
+            logger.warning("输入参考音频采样率不为16000，已对其自动进行重采样。")
 
         lengths = np.array([len(waveform)], dtype=np.int32)
         samples = np.array(waveform, dtype=np.float32)
