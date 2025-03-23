@@ -12,11 +12,12 @@ def prepare_engine():
     #     model_path="Spark-TTS-0.5B",
     #     max_length=32768,
     #     llm_device="cuda:0",
-    #     audio_device="cuda:0",
-    #     vocoder_device="cuda:0",
+    #     tokenizer_device="cuda:0",
+    #     detokenizer_device="cuda:0",
     #     engine="vllm",
     #     wav2vec_attn_implementation="sdpa",  # 使用flash attn加速wav2vec
-    #     llm_gpu_memory_utilization=0.6
+    #     llm_gpu_memory_utilization=0.6,
+    #     seed=0
     # )
 
     # sglang
@@ -24,11 +25,12 @@ def prepare_engine():
     #     model_path="Spark-TTS-0.5B",
     #     max_length=32768,
     #     llm_device="cuda",  # sglang没办法指定gpu id，需要使用CUDA_VISIBLE_DEVICES=0设置。
-    #     audio_device="cuda:0",
-    #     vocoder_device="cuda:0",
+    #     tokenizer_device="cuda:0",
+    #     detokenizer_device="cuda:0",
     #     engine="sglang",
     #     wav2vec_attn_implementation="sdpa",  # 使用flash attn加速wav2vec
-    #     llm_gpu_memory_utilization=0.6
+    #     llm_gpu_memory_utilization=0.6,
+    #     seed=0
     # )
 
     # llama-cpp
@@ -36,8 +38,8 @@ def prepare_engine():
     #     model_path="Spark-TTS-0.5B",
     #     max_length=32768,
     #     llm_device="cpu",
-    #     audio_device="cpu",
-    #     vocoder_device="cpu",
+    #     tokenizer_device="cpu",
+    #     detokenizer_device="cpu",
     #     engine="llama-cpp",
     #     wav2vec_attn_implementation="eager"
     # )
@@ -47,11 +49,13 @@ def prepare_engine():
         model_path="Spark-TTS-0.5B",
         max_length=32768,
         llm_device="cuda",
-        audio_device="cuda",
-        vocoder_device="cuda",
+        tokenizer_device="cuda",
+        detokenizer_device="cuda",
         engine="torch",
         wav2vec_attn_implementation="sdpa",
-        llm_attn_implementation="sdpa"
+        llm_attn_implementation="sdpa",
+        torch_dtype="bfloat16",
+        seed=0
     )
     return engine
 
@@ -69,7 +73,7 @@ def generate_voice(engine: AsyncFastSparkTTS):
 
 
 async def async_generate_voice(engine: AsyncFastSparkTTS):
-    wav = await engine.async_generate_voice(
+    wav = await engine.generate_voice_async(
         "我是无敌的小可爱。",
         gender="female",
         temperature=0.6,
@@ -82,12 +86,11 @@ async def async_generate_voice(engine: AsyncFastSparkTTS):
 
 def clone_voice(engine: AsyncFastSparkTTS):
     text = "身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。"
-    reference_text = "吃燕窝就选燕之屋，本节目由26年专注高品质燕窝的燕之屋冠名播出。豆奶牛奶换着喝，营养更均衡，本节目由豆本豆豆奶特约播出。"
 
     wav = engine.clone_voice(
         text=text,
         reference_audio="data/roles/赞助商/reference_audio.wav",
-        reference_text=None, # or reference_text=reference_text
+        reference_text=None,
         temperature=0.6,
         top_p=0.95,
         top_k=50,
@@ -98,12 +101,10 @@ def clone_voice(engine: AsyncFastSparkTTS):
 
 async def async_clone_voice(engine: AsyncFastSparkTTS):
     text = "身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。"
-    reference_text = "吃燕窝就选燕之屋，本节目由26年专注高品质燕窝的燕之屋冠名播出。豆奶牛奶换着喝，营养更均衡，本节目由豆本豆豆奶特约播出。"
 
-    wav = await engine.async_clone_voice(
+    wav = await engine.clone_voice_async(
         text=text,
         reference_audio="data/roles/赞助商/reference_audio.wav",
-        reference_text=None, # or reference_text=reference_text
         temperature=0.6,
         top_p=0.95,
         top_k=50,

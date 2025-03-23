@@ -14,8 +14,11 @@ import uvicorn
 import soundfile as sf
 from starlette.middleware.cors import CORSMiddleware
 
-from fast_sparktts.runtime import AsyncFastSparkTTS
-from fast_sparktts.runtime.logger import get_logger, setup_logging
+from fast_sparktts import (
+    AsyncFastSparkTTS,
+    get_logger,
+    setup_logging
+)
 
 logger = get_logger()
 
@@ -57,7 +60,7 @@ class CloneRequest(BaseModel):
 @app.post("/generate_voice")
 async def generate_voice(req: TTSRequest):
     try:
-        audio = await engine.async_generate_voice(
+        audio = await engine.generate_voice_async(
             req.text,
             gender=req.gender,
             pitch=req.pitch,
@@ -107,7 +110,7 @@ async def clone_voice(
         raise HTTPException(status_code=400, detail="读取参考音频失败: " + str(e))
 
     try:
-        inputs = await engine.prepare_clone_inputs(
+        audio = await engine.clone_voice_async(
             text=req.text,
             reference_audio=bytes_io,
             reference_text=req.reference_text,
@@ -115,14 +118,6 @@ async def clone_voice(
             top_p=req.top_p,
             top_k=req.top_k,
             max_tokens=req.max_tokens
-        )
-    except Exception as e:
-        logger.warning("音频预处理失败：" + str(e))
-        raise HTTPException(status_code=500, detail="音频预处理失败：" + str(e))
-
-    try:
-        audio = await engine.async_clone_voice_from_ndarray(
-            **inputs
         )
     except Exception as e:
         logger.warning("生成克隆语音失败：" + str(e))
@@ -144,10 +139,10 @@ if __name__ == '__main__':
                         help="引擎类型，如 llama-cpp、vllm、sglang 或 torch")
     parser.add_argument("--llm_device", type=str, default="auto",
                         help="llm 设备，例如 cpu 或 cuda:0")
-    parser.add_argument("--audio_device", type=str, default="auto",
-                        help="audio 设备")
-    parser.add_argument("--vocoder_device", type=str, default="auto",
-                        help="vocoder 设备")
+    parser.add_argument("--tokenizer_device", type=str, default="auto",
+                        help="audio tokenizer 设备")
+    parser.add_argument("--detokenizer_device", type=str, default="auto",
+                        help="audio detokenizer 设备")
     parser.add_argument("--wav2vec_attn_implementation", type=str, default="eager",
                         choices=["sdpa", "flash_attention_2", "eager"],
                         help="wav2vec 的 attn_implementation 方式")
@@ -164,6 +159,7 @@ if __name__ == '__main__':
     parser.add_argument("--cache_implementation", type=str, default=None,
                         help='将在“generate”中实例化的缓存类的名称，用于更快地解码. 可能设置的值有：static、offloaded_static、sliding_window、hybrid、mamba、quantized。'
                         )
+    parser.add_argument("--seed", type=int, default=8000, help="随机种子")
     parser.add_argument("--batch_size", type=int, default=32, help="音频处理组件单批次处理的最大请求数。")
     parser.add_argument("--wait_timeout", type=float, default=0.01, help="动态批处理请求超时阈值，单位为秒。")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="服务监听地址")
@@ -180,8 +176,8 @@ if __name__ == '__main__':
         model_path=args.model_path,
         max_length=args.max_length,
         llm_device=args.llm_device,
-        audio_device=args.audio_device,
-        vocoder_device=args.vocoder_device,
+        tokenizer_device=args.tokenizer_device,
+        detokenizer_device=args.detokenizer_device,
         engine=args.engine,
         wav2vec_attn_implementation=args.wav2vec_attn_implementation,
         llm_attn_implementation=args.llm_attn_implementation,
@@ -189,7 +185,8 @@ if __name__ == '__main__':
         torch_dtype=args.torch_dtype,
         batch_size=args.batch_size,
         wait_timeout=args.wait_timeout,
-        cache_implementation=args.cache_implementation
+        cache_implementation=args.cache_implementation,
+        seed=args.seed
     )
 
     uvicorn.run(app, host=args.host, port=args.port)

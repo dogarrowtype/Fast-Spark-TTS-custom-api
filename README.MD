@@ -97,8 +97,8 @@ python server.py \
 --model_path Spark-TTS-0.5B \
 --engine vllm \
 --llm_device cuda \
---audio_device cuda \
---vocoder_device cuda \
+--tokenizer_device cuda \
+--detokenizer_device cuda \
 --wav2vec_attn_implementation sdpa \
 --max_length 32768 \
 --llm_gpu_memory_utilization 0.6 \

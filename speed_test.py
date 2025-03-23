@@ -22,8 +22,8 @@ async def run(
         "model_path": model_path,
         "max_length": 32768,
         "llm_device": device,
-        "audio_device": device,
-        "vocoder_device": device,
+        "tokenizer_device": device,
+        "detokenizer_device": device,
         "engine": engine
     }
     if engine in ["vllm", "sglang", "torch"]:
@@ -39,7 +39,7 @@ async def run(
 
     start_time = time.perf_counter()
     for i in range(num_infer):
-        audio = await model.async_clone_voice(
+        audio = await model.clone_voice_async(
             text=target_text,
             reference_audio=reference_wav,
             reference_text=None,
