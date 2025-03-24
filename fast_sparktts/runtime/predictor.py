@@ -15,6 +15,17 @@ from .prompt import process_prompt, process_prompt_control, split_text
 logger = get_logger()
 
 
+def limit_concurrency(semaphore: asyncio.Semaphore):
+    def decorator(func):
+        async def wrapped(*args, **kwargs):
+            async with semaphore:  # 在这里限制并发请求数
+                return await func(*args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
 class AsyncFastSparkTTS:
     def __init__(
             self,
@@ -79,6 +90,7 @@ class AsyncFastSparkTTS:
             **kwargs
         )
         self.speakers = {}
+        self._batch_size = batch_size
 
     @classmethod
     def set_seed(cls, seed: int = 0):
@@ -251,7 +263,9 @@ class AsyncFastSparkTTS:
             return generated
 
         if len(segments) > 1:
-            tasks = [asyncio.create_task(clone_segment(segment)) for segment in segments]
+            semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
+            limit_clone_segment = limit_concurrency(semaphore)(clone_segment)
+            tasks = [asyncio.create_task(limit_clone_segment(segment)) for segment in segments]
             # 并发执行所有任务
             generated_segments = await asyncio.gather(*tasks)
             semantic_token_ids = torch.cat(
@@ -407,7 +421,11 @@ class AsyncFastSparkTTS:
                 acoustic_prompt = acoustic_prompt[0]
             else:
                 acoustic_prompt = None
-            tasks = [asyncio.create_task(generate_tokens(segment, acoustic_prompt)) for segment in segments[1:]]
+
+            semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
+            limit_generate_tokens = limit_concurrency(semaphore)(generate_tokens)
+
+            tasks = [asyncio.create_task(limit_generate_tokens(segment, acoustic_prompt)) for segment in segments[1:]]
             # 并发执行所有任务
             generated_segments = await asyncio.gather(*tasks)
             generated_segments = [first_generated] + generated_segments
