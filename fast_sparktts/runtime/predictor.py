@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from .logger import get_logger
 from .engine import Tokenizer, DeTokenizer
-from .prompt import process_prompt, process_prompt_control
+from .prompt import process_prompt, process_prompt_control, split_text
 
 logger = get_logger()
 
@@ -50,6 +50,7 @@ class AsyncFastSparkTTS:
             wait_timeout:
             **kwargs:
         """
+        self.seed = seed
         self.set_seed(seed)
 
         self.audio_tokenizer = Tokenizer(
@@ -176,10 +177,10 @@ class AsyncFastSparkTTS:
     async def _generate_audio_tokens(
             self,
             prompt: str,
-            temperature: float = 0.6,
+            temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.95,
-            max_tokens: int = 2048,
+            max_tokens: int = 4096,
             **kwargs
     ) -> dict[str, torch.Tensor | str]:
         generated_output = await self.generator.async_generate(
@@ -220,28 +221,53 @@ class AsyncFastSparkTTS:
             global_tokens: torch.Tensor,
             semantic_tokens: torch.Tensor,
             reference_text: Optional[str] = None,
-            temperature: float = 0.6,
+            temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.95,
-            max_tokens: int = 2048,
+            max_tokens: int = 4096,
+            split: bool = False,
+            window_size: int = 100,
             **kwargs) -> np.ndarray:
-        prompt, global_token_ids = process_prompt(
-            text=text,
-            prompt_text=reference_text,
-            global_token_ids=global_tokens,
-            semantic_token_ids=semantic_tokens,
-        )
-        generated = await self._generate_audio_tokens(
-            prompt=prompt,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            max_tokens=max_tokens,
-            **kwargs
-        )
+        if split:
+            segments = split_text(text, window_size=window_size)
+        else:
+            segments = [text]
+
+        async def clone_segment(segment):
+            prompt, global_token_ids = process_prompt(
+                text=segment,
+                prompt_text=reference_text,
+                global_token_ids=global_tokens,
+                semantic_token_ids=semantic_tokens,
+            )
+            generated = await self._generate_audio_tokens(
+                prompt=prompt,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                **kwargs
+            )
+            return generated
+
+        if len(segments) > 1:
+            tasks = [asyncio.create_task(clone_segment(segment)) for segment in segments]
+            # 并发执行所有任务
+            generated_segments = await asyncio.gather(*tasks)
+            semantic_token_ids = torch.cat(
+                [generated["semantic_tokens"] for generated in generated_segments],
+                dim=0
+            )
+        elif len(segments) == 1:
+            semantic_token_ids = await clone_segment(segments[0])
+            semantic_token_ids = semantic_token_ids['semantic_tokens']
+        else:
+            logger.error(f"请传入有效文本：{segments}")
+            raise ValueError(f"请传入有效文本：{segments}")
+
         detokenizer_req = {
-            "global_tokens": global_token_ids,
-            "semantic_tokens": generated["semantic_tokens"]
+            "global_tokens": global_tokens,
+            "semantic_tokens": semantic_token_ids
         }
         audio = await self.audio_detokenizer.detokenize_async(
             request=detokenizer_req
@@ -271,10 +297,12 @@ class AsyncFastSparkTTS:
             self,
             name: str,
             text: str,
-            temperature: float = 0.6,
+            temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.95,
-            max_tokens: int = 2048,
+            max_tokens: int = 4096,
+            split: bool = False,
+            window_size: int = 100,
             **kwargs) -> np.ndarray:
         if name not in self.speakers:
             err_msg = f"{name} 角色不存在。"
@@ -290,6 +318,8 @@ class AsyncFastSparkTTS:
             top_k=top_k,
             top_p=top_p,
             max_tokens=max_tokens,
+            split=split,
+            window_size=window_size,
             **kwargs
         )
         return audio
@@ -299,10 +329,12 @@ class AsyncFastSparkTTS:
             text: str,
             reference_audio,
             reference_text: Optional[str] = None,
-            temperature: float = 0.6,
+            temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.95,
-            max_tokens: int = 2048,
+            max_tokens: int = 4096,
+            split: bool = False,
+            window_size: int = 100,
             **kwargs) -> np.ndarray:
 
         tokens = await self._tokenize(
@@ -317,6 +349,8 @@ class AsyncFastSparkTTS:
             top_k=top_k,
             top_p=top_p,
             max_tokens=max_tokens,
+            split=split,
+            window_size=window_size,
             **kwargs
         )
         return audio
@@ -327,28 +361,68 @@ class AsyncFastSparkTTS:
             gender: Optional[Literal["female", "male"]] = "female",
             pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
             speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
-            temperature: float = 0.6,
+            temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.95,
-            max_tokens: int = 2048,
+            max_tokens: int = 4096,
+            split: bool = False,  # 是否需要对文本切分，通常用于长文本场景
+            window_size: int = 100,
             **kwargs) -> np.ndarray:
-        prompt = process_prompt_control(text, gender, pitch, speed)
-        generated = await self._generate_audio_tokens(
-            prompt=prompt,
+
+        if split:
+            segments = split_text(text, window_size)
+        else:
+            segments = [text]
+
+        async def generate_tokens(segment: str, acoustic_prompt: str):
+            prompt = process_prompt_control(segment, gender, pitch, speed)
+            if acoustic_prompt is not None:
+                prompt += acoustic_prompt
+            generated = await self._generate_audio_tokens(
+                prompt=prompt,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                **kwargs
+            )
+            return generated
+
+        # 使用第一段生成音色token，将其与后面片段一起拼接，使用相同音色token引导输出semantic tokens。
+        first_prompt = process_prompt_control(segments[0], gender, pitch, speed)
+        first_generated = await self._generate_audio_tokens(
+            prompt=first_prompt,
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
             max_tokens=max_tokens,
             **kwargs
         )
-        if "global_tokens" not in generated:
-            err_msg = f"Global tokens 预测为空，prompt：{prompt}，llm output：{generated['completion']}"
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        if len(segments) > 1:
+            # 提取关于音色的token部分
+            acoustic_prompt = re.findall(
+                r"(<\|start_acoustic_token\|>.*?<\|end_global_token\|>)",
+                first_generated['completion'])
+            if len(acoustic_prompt) > 0:
+                acoustic_prompt = acoustic_prompt[0]
+            else:
+                acoustic_prompt = None
+            tasks = [asyncio.create_task(generate_tokens(segment, acoustic_prompt)) for segment in segments[1:]]
+            # 并发执行所有任务
+            generated_segments = await asyncio.gather(*tasks)
+            generated_segments = [first_generated] + generated_segments
+            semantic_tokens = torch.cat(
+                [generated["semantic_tokens"] for generated in generated_segments],
+                dim=0
+            )
+        else:
+            semantic_tokens = first_generated['semantic_tokens']
 
+        # 使用同一个global tokens尝试固定住音色。
+        # 从这里可以看出，如果想要保持同一个音色，可以将acoustic_prompt和global_tokens保存下来即可
         detokenizer_req = {
-            "global_tokens": generated['global_tokens'],
-            "semantic_tokens": generated["semantic_tokens"]
+            "global_tokens": first_generated['global_tokens'],
+            "semantic_tokens": semantic_tokens
         }
         audio = await self.audio_detokenizer.detokenize_async(
             request=detokenizer_req
@@ -360,10 +434,12 @@ class AsyncFastSparkTTS:
             self,
             name: str,
             text: str,
-            temperature: float = 0.6,
+            temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.95,
-            max_tokens: int = 2048,
+            max_tokens: int = 4096,
+            split: bool = False,  # 是否需要对文本切分，通常用于长文本场景
+            window_size: int = 100,
             **kwargs):
         return asyncio.run(
             self.speak_async(
@@ -373,6 +449,8 @@ class AsyncFastSparkTTS:
                 top_k=top_k,
                 top_p=top_p,
                 max_tokens=max_tokens,
+                split=split,
+                window_size=window_size,
                 **kwargs
             ))
 
@@ -381,10 +459,12 @@ class AsyncFastSparkTTS:
             text: str,
             reference_audio,
             reference_text: Optional[str] = None,
-            temperature: float = 0.6,
+            temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.95,
-            max_tokens: int = 2048,
+            max_tokens: int = 4096,
+            split: bool = False,  # 是否需要对文本切分，通常用于长文本场景
+            window_size: int = 100,
             **kwargs):
         return asyncio.run(
             self.clone_voice_async(
@@ -395,6 +475,8 @@ class AsyncFastSparkTTS:
                 top_k=top_k,
                 top_p=top_p,
                 max_tokens=max_tokens,
+                split=split,
+                window_size=window_size,
                 **kwargs
             )
         )
@@ -405,10 +487,12 @@ class AsyncFastSparkTTS:
             gender: Optional[Literal["female", "male"]] = "female",
             pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
             speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
-            temperature: float = 0.6,
+            temperature: float = 0.8,
             top_k: int = 50,
             top_p: float = 0.95,
-            max_tokens: int = 2048,
+            max_tokens: int = 4096,
+            split: bool = False,  # 是否需要对文本切分，通常用于长文本场景
+            window_size: int = 100,
             **kwargs) -> np.ndarray:
         return asyncio.run(
             self.generate_voice_async(
@@ -420,6 +504,8 @@ class AsyncFastSparkTTS:
                 top_k=top_k,
                 top_p=top_p,
                 max_tokens=max_tokens,
+                split=split,
+                window_size=window_size,
                 **kwargs
             )
         )

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Time      :2025/3/23 20:30
 # Author    :Hui Huang
+import re
 from typing import Optional, Tuple, Literal
 
 import torch
@@ -136,3 +137,48 @@ def process_prompt_control(
     ]
 
     return "".join(control_tts_inputs)
+
+
+def contains_chinese(s: str) -> bool:
+    """
+    判断字符串中是否包含中文字符
+    """
+    return bool(re.search(r'[\u4e00-\u9fff]', s))
+
+
+def split_text(text: str, window_size: int) -> list[str]:
+    """
+    将长文本拆分成多个片段。首先使用中英文句号、问号、感叹号等切分文本，
+    然后根据传入的窗口大小将切分后的句子合并成不超过窗口大小的片段。
+    如果单个句子长度超过窗口大小，则会对该句子进行切割。
+
+    :param text: 输入的长文本
+    :param window_size: 每个片段的最大长度
+    :return: 切分后的文本片段列表
+    """
+    is_chinese = contains_chinese(text)
+    sentences = re.split(r'(?<=[。？！.!?])', text)
+    # 去除拆分过程中产生的空字符串，并去除两侧空白
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    segments = []
+    current_segment = ""
+    current_length = 0
+    for sentence in sentences:
+        sent_len = len(sentence) if is_chinese else len(sentence.split())
+        if sent_len > window_size:
+            segments.append(current_segment)
+            segments.append(sentence)  # 不进一步细分
+            current_segment = ""
+            current_length = 0
+        else:
+            if current_length + sent_len > window_size:
+                segments.append(current_segment)
+                current_segment = sentence
+                current_length = sent_len
+            else:
+                current_length += sent_len
+                current_segment += sentence
+    if current_segment:
+        segments.append(current_segment)
+    return [seg for seg in segments if len(seg.strip()) > 0]
