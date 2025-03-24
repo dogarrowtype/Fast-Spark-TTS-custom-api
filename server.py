@@ -33,10 +33,12 @@ class TTSRequest(BaseModel):
     gender: Literal["female", "male"] = "female"
     pitch: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
     speed: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
-    temperature: float = 0.6
+    temperature: float = 0.8
     top_k: int = 50
     top_p: float = 0.95
     max_tokens: int = 4096
+    split: bool = False
+    window_size: int = 100
 
 
 # 定义支持多种方式传入参考音频的请求协议
@@ -45,20 +47,24 @@ class CloneRequest(BaseModel):
     # reference_audio 字段既可以是一个 URL，也可以是 base64 编码的音频数据
     reference_audio: str
     reference_text: Optional[str] = None
-    temperature: float = 0.6
+    temperature: float = 0.8
     top_k: int = 50
     top_p: float = 0.95
     max_tokens: int = 4096
+    split: bool = False
+    window_size: int = 100
 
 
 # 定义角色语音合成请求体
 class SpeakRequest(BaseModel):
     name: str
     text: str
-    temperature: float = 0.6
+    temperature: float = 0.8
     top_k: int = 50
     top_p: float = 0.95
     max_tokens: int = 4096
+    split: bool = False
+    window_size: int = 100
 
 
 async def load_roles(async_engine: AsyncFastSparkTTS, role_dir: Optional[str] = None):
@@ -114,7 +120,9 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
             temperature=req.temperature,
             top_p=req.top_p,
             top_k=req.top_k,
-            max_tokens=req.max_tokens
+            max_tokens=req.max_tokens,
+            split=req.split,
+            window_size=req.window_size,
         )
     except Exception as e:
         logger.warning(f"TTS 合成失败: {e}")
@@ -165,7 +173,9 @@ async def clone_voice(
             temperature=req.temperature,
             top_p=req.top_p,
             top_k=req.top_k,
-            max_tokens=req.max_tokens
+            max_tokens=req.max_tokens,
+            split=req.split,
+            window_size=req.window_size,
         )
     except Exception as e:
         logger.warning("生成克隆语音失败：" + str(e))
@@ -201,7 +211,9 @@ async def speak(req: SpeakRequest, raw_request: Request):
             temperature=req.temperature,
             top_p=req.top_p,
             top_k=req.top_k,
-            max_tokens=req.max_tokens
+            max_tokens=req.max_tokens,
+            split=req.split,
+            window_size=req.window_size,
         )
     except Exception as e:
         logger.warning(f"TTS 合成失败: {e}")

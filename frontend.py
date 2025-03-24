@@ -8,11 +8,20 @@ from flask import Flask, render_template, request, jsonify, send_file
 import requests
 import base64
 import tempfile
-from fast_sparktts.runtime.logger import get_logger, setup_logging
+from fast_sparktts import get_logger, setup_logging
+from fast_sparktts.runtime.prompt import contains_chinese
 
 logger = get_logger()
 
 app = Flask(__name__)
+
+
+def should_split(text: str, threshold: int) -> bool:
+    if contains_chinese(text):
+        length = len(text)
+    else:
+        length = len(text.split(" "))
+    return length > threshold
 
 
 @app.route('/')
@@ -48,10 +57,12 @@ def generate_voice():
         "gender": data.get('gender', 'male'),
         "pitch": data.get('pitch', 'moderate'),
         "speed": data.get('speed', 'moderate'),
-        "temperature": float(data.get('temperature', 0.6)),
+        "temperature": float(data.get('temperature', 0.8)),
         "top_p": float(data.get('top_p', 0.95)),
         "top_k": int(data.get('top_k', 50)),
-        "max_tokens": int(data.get('max_tokens', 2048))
+        "max_tokens": int(data.get('max_tokens', 4096)),
+        "split": should_split(data.get('text', ''), args.length_threshold),
+        "window_size": args.window_size,
     }
 
     # 调用API
@@ -97,10 +108,12 @@ def clone_voice():
         "text": data.get('text', ''),
         "reference_text": data.get('reference_text', None),
         "reference_audio": audio_base64,
-        "temperature": float(data.get('temperature', 0.6)),
+        "temperature": float(data.get('temperature', 0.8)),
         "top_p": float(data.get('top_p', 0.95)),
         "top_k": int(data.get('top_k', 50)),
-        "max_tokens": int(data.get('max_tokens', 2048))
+        "max_tokens": int(data.get('max_tokens', 4096)),
+        "split": should_split(data.get('text', ''), args.length_threshold),
+        "window_size": args.window_size,
     }
 
     # 调用API
@@ -140,10 +153,12 @@ def clone_by_role():
     payload = {
         "name": role_id,
         "text": data.get('text', ''),
-        "temperature": float(data.get('temperature', 0.6)),
+        "temperature": float(data.get('temperature', 0.8)),
         "top_p": float(data.get('top_p', 0.95)),
         "top_k": int(data.get('top_k', 50)),
-        "max_tokens": int(data.get('max_tokens', 2048))
+        "max_tokens": int(data.get('max_tokens', 4096)),
+        "split": should_split(data.get('text', ''), args.length_threshold),
+        "window_size": args.window_size,
     }
 
     # 调用API
@@ -195,6 +210,8 @@ if __name__ == '__main__':
                         help="FastSparkTTS服务端接口地址")
     parser.add_argument("--audio_dir", type=str, default="data/audios",
                         help="保存合成语音临时文件的目录")
+    parser.add_argument("--length_threshold", type=int, default=100, help="长文本阈值，超过这个长度启动长文本语音合成。")
+    parser.add_argument("--window_size", type=int, default=100, help="长文本推理时，文本片段切分的窗口大小")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="前端地址")
     parser.add_argument("--port", type=int, default=8001, help="前端端口")
     args = parser.parse_args()
