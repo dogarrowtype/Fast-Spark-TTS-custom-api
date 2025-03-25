@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from typing import Literal, Optional
 
 import httpx
+import numpy as np
 from fastapi import FastAPI, HTTPException, Request, APIRouter
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
@@ -39,6 +40,11 @@ class TTSRequest(BaseModel):
     max_tokens: int = 4096
     split: bool = False
     window_size: int = 100
+    stream: bool = False
+    audio_chunk_duration: float = 1.0
+    max_audio_chunk_duration: float = 8.0
+    audio_chunk_size_scale_factor: float = 2.0
+    audio_chunk_overlap_duration: float = 0.1
 
 
 # 定义支持多种方式传入参考音频的请求协议
@@ -53,6 +59,11 @@ class CloneRequest(BaseModel):
     max_tokens: int = 4096
     split: bool = False
     window_size: int = 100
+    stream: bool = False
+    audio_chunk_duration: float = 1.0
+    max_audio_chunk_duration: float = 8.0
+    audio_chunk_size_scale_factor: float = 2.0
+    audio_chunk_overlap_duration: float = 0.1
 
 
 # 定义角色语音合成请求体
@@ -65,6 +76,11 @@ class SpeakRequest(BaseModel):
     max_tokens: int = 4096
     split: bool = False
     window_size: int = 100
+    stream: bool = False
+    audio_chunk_duration: float = 1.0
+    max_audio_chunk_duration: float = 8.0
+    audio_chunk_size_scale_factor: float = 2.0
+    audio_chunk_overlap_duration: float = 0.1
 
 
 async def load_roles(async_engine: AsyncFastSparkTTS, role_dir: Optional[str] = None):
@@ -108,30 +124,59 @@ async def warmup_engine(async_engine: AsyncFastSparkTTS):
     logger.info("Warmup complete.")
 
 
-# TTS 合成接口：接收 JSON 请求，返回合成语音（wav 格式）
-@router.post("/generate_voice")
-async def generate_voice(req: TTSRequest, raw_request: Request):
-    try:
-        audio = await raw_request.app.state.engine.generate_voice_async(
-            req.text,
-            gender=req.gender,
-            pitch=req.pitch,
-            speed=req.speed,
-            temperature=req.temperature,
-            top_p=req.top_p,
-            top_k=req.top_k,
-            max_tokens=req.max_tokens,
-            split=req.split,
-            window_size=req.window_size,
-        )
-    except Exception as e:
-        logger.warning(f"TTS 合成失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
+async def process_audio_buffer(audio: np.ndarray):
     audio_io = io.BytesIO()
     sf.write(audio_io, audio, 16000, format="WAV", subtype="PCM_16")
     audio_io.seek(0)
-    return StreamingResponse(audio_io, media_type="audio/wav")
+    return audio_io
+
+
+# TTS 合成接口：接收 JSON 请求，返回合成语音（wav 格式）
+@router.post("/generate_voice")
+async def generate_voice(req: TTSRequest, raw_request: Request):
+    engine: AsyncFastSparkTTS = raw_request.app.state.engine
+    if req.stream:
+        async def generate_audio_stream():
+            async for chunk in engine.generate_voice_stream_async(
+                    req.text,
+                    gender=req.gender,
+                    pitch=req.pitch,
+                    speed=req.speed,
+                    temperature=req.temperature,
+                    top_p=req.top_p,
+                    top_k=req.top_k,
+                    max_tokens=req.max_tokens,
+                    split=req.split,
+                    window_size=req.window_size,
+                    audio_chunk_duration=req.audio_chunk_duration,
+                    max_audio_chunk_duration=req.max_audio_chunk_duration,
+                    audio_chunk_size_scale_factor=req.audio_chunk_size_scale_factor,
+                    audio_chunk_overlap_duration=req.audio_chunk_overlap_duration,
+            ):
+                audio_bytes = (chunk * (2 ** 15)).astype(np.int16).tobytes()
+                yield audio_bytes
+
+        return StreamingResponse(generate_audio_stream(), media_type="audio/pcm")
+    else:
+        try:
+            audio = await engine.generate_voice_async(
+                req.text,
+                gender=req.gender,
+                pitch=req.pitch,
+                speed=req.speed,
+                temperature=req.temperature,
+                top_p=req.top_p,
+                top_k=req.top_k,
+                max_tokens=req.max_tokens,
+                split=req.split,
+                window_size=req.window_size,
+            )
+        except Exception as e:
+            logger.warning(f"TTS 合成失败: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        audio_io = await process_audio_buffer(audio)
+        return StreamingResponse(audio_io, media_type="audio/wav")
 
 
 async def get_audio_bytes_from_url(url: str) -> bytes:
@@ -147,7 +192,7 @@ async def get_audio_bytes_from_url(url: str) -> bytes:
 async def clone_voice(
         req: CloneRequest, raw_request: Request
 ):
-    engine = raw_request.app.state.engine
+    engine: AsyncFastSparkTTS = raw_request.app.state.engine
 
     # 根据 reference_audio 内容判断读取方式
     if req.reference_audio.startswith("http://") or req.reference_audio.startswith("https://"):
@@ -165,26 +210,46 @@ async def clone_voice(
         logger.warning("读取参考音频失败: " + str(e))
         raise HTTPException(status_code=400, detail="读取参考音频失败: " + str(e))
 
-    try:
-        audio = await engine.clone_voice_async(
-            text=req.text,
-            reference_audio=bytes_io,
-            reference_text=req.reference_text,
-            temperature=req.temperature,
-            top_p=req.top_p,
-            top_k=req.top_k,
-            max_tokens=req.max_tokens,
-            split=req.split,
-            window_size=req.window_size,
-        )
-    except Exception as e:
-        logger.warning("生成克隆语音失败：" + str(e))
-        raise HTTPException(status_code=500, detail="生成克隆语音失败：" + str(e))
+    if req.stream:
+        async def generate_audio_stream():
+            async for chunk in engine.clone_voice_stream_async(
+                    text=req.text,
+                    reference_audio=bytes_io,
+                    reference_text=req.reference_text,
+                    temperature=req.temperature,
+                    top_p=req.top_p,
+                    top_k=req.top_k,
+                    max_tokens=req.max_tokens,
+                    split=req.split,
+                    window_size=req.window_size,
+                    audio_chunk_duration=req.audio_chunk_duration,
+                    max_audio_chunk_duration=req.max_audio_chunk_duration,
+                    audio_chunk_size_scale_factor=req.audio_chunk_size_scale_factor,
+                    audio_chunk_overlap_duration=req.audio_chunk_overlap_duration,
+            ):
+                out_bytes = (chunk * (2 ** 15)).astype(np.int16).tobytes()
+                yield out_bytes
 
-    audio_io = io.BytesIO()
-    sf.write(audio_io, audio, 16000, format="WAV", subtype="PCM_16")
-    audio_io.seek(0)
-    return StreamingResponse(audio_io, media_type="audio/wav")
+        return StreamingResponse(generate_audio_stream(), media_type="audio/pcm")
+    else:
+        try:
+            audio = await engine.clone_voice_async(
+                text=req.text,
+                reference_audio=bytes_io,
+                reference_text=req.reference_text,
+                temperature=req.temperature,
+                top_p=req.top_p,
+                top_k=req.top_k,
+                max_tokens=req.max_tokens,
+                split=req.split,
+                window_size=req.window_size,
+            )
+        except Exception as e:
+            logger.warning("生成克隆语音失败：" + str(e))
+            raise HTTPException(status_code=500, detail="生成克隆语音失败：" + str(e))
+
+        audio_io = await process_audio_buffer(audio)
+        return StreamingResponse(audio_io, media_type="audio/wav")
 
 
 @router.get("/audio_roles")
@@ -204,25 +269,45 @@ async def speak(req: SpeakRequest, raw_request: Request):
         err_msg = f"{req.name} 不在已有的角色列表中。"
         logger.warning(err_msg)
         raise HTTPException(status_code=500, detail=err_msg)
-    try:
-        audio = await engine.speak_async(
-            name=req.name,
-            text=req.text,
-            temperature=req.temperature,
-            top_p=req.top_p,
-            top_k=req.top_k,
-            max_tokens=req.max_tokens,
-            split=req.split,
-            window_size=req.window_size,
-        )
-    except Exception as e:
-        logger.warning(f"TTS 合成失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
-    audio_io = io.BytesIO()
-    sf.write(audio_io, audio, 16000, format="WAV", subtype="PCM_16")
-    audio_io.seek(0)
-    return StreamingResponse(audio_io, media_type="audio/wav")
+    if req.stream:
+        async def generate_audio_stream():
+            async for chunk in engine.speak_stream_async(
+                    name=req.name,
+                    text=req.text,
+                    temperature=req.temperature,
+                    top_p=req.top_p,
+                    top_k=req.top_k,
+                    max_tokens=req.max_tokens,
+                    split=req.split,
+                    window_size=req.window_size,
+                    audio_chunk_duration=req.audio_chunk_duration,
+                    max_audio_chunk_duration=req.max_audio_chunk_duration,
+                    audio_chunk_size_scale_factor=req.audio_chunk_size_scale_factor,
+                    audio_chunk_overlap_duration=req.audio_chunk_overlap_duration,
+            ):
+                out_bytes = (chunk * (2 ** 15)).astype(np.int16).tobytes()
+                yield out_bytes
+
+        return StreamingResponse(generate_audio_stream(), media_type="audio/pcm")
+    else:
+        try:
+            audio = await engine.speak_async(
+                name=req.name,
+                text=req.text,
+                temperature=req.temperature,
+                top_p=req.top_p,
+                top_k=req.top_k,
+                max_tokens=req.max_tokens,
+                split=req.split,
+                window_size=req.window_size,
+            )
+        except Exception as e:
+            logger.warning(f"TTS 合成失败: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        audio_io = await process_audio_buffer(audio)
+        return StreamingResponse(audio_io, media_type="audio/wav")
 
 
 def build_app(args) -> FastAPI:
