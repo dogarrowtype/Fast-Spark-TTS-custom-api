@@ -260,34 +260,30 @@ class AsyncFastSparkTTS:
                 max_tokens=max_tokens,
                 **kwargs
             )
-            return generated
+            detokenizer_req = {
+                "global_tokens": global_tokens,
+                "semantic_tokens": generated["semantic_tokens"],
+            }
+            audio = await self.audio_detokenizer.detokenize_async(
+                request=detokenizer_req
+            )
+            audio = audio["audio"][0].cpu().numpy().astype(np.float32)
+            return audio
 
         if len(segments) > 1:
             semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
             limit_clone_segment = limit_concurrency(semaphore)(clone_segment)
             tasks = [asyncio.create_task(limit_clone_segment(segment)) for segment in segments]
             # 并发执行所有任务
-            generated_segments = await asyncio.gather(*tasks)
-            semantic_token_ids = torch.cat(
-                [generated["semantic_tokens"] for generated in generated_segments],
-                dim=0
-            )
+            audios = await asyncio.gather(*tasks)
+            final_audio = np.concatenate(audios, axis=0)
         elif len(segments) == 1:
-            semantic_token_ids = await clone_segment(segments[0])
-            semantic_token_ids = semantic_token_ids['semantic_tokens']
+            final_audio = await clone_segment(segments[0])
         else:
             logger.error(f"请传入有效文本：{segments}")
             raise ValueError(f"请传入有效文本：{segments}")
 
-        detokenizer_req = {
-            "global_tokens": global_tokens,
-            "semantic_tokens": semantic_token_ids
-        }
-        audio = await self.audio_detokenizer.detokenize_async(
-            request=detokenizer_req
-        )
-        audio = audio["audio"][0].cpu().numpy().astype(np.float32)
-        return audio
+        return final_audio
 
     async def add_speaker(self, name: str, audio, reference_text: Optional[str] = None):
         if name in self.speakers:
@@ -388,7 +384,11 @@ class AsyncFastSparkTTS:
         else:
             segments = [text]
 
-        async def generate_tokens(segment: str, acoustic_prompt: str):
+        async def generate_audio(
+                segment: str,
+                acoustic_prompt: Optional[str] = None,
+                global_tokens: Optional[torch.Tensor] = None,
+        ):
             prompt = process_prompt_control(segment, gender, pitch, speed)
             if acoustic_prompt is not None:
                 prompt += acoustic_prompt
@@ -400,53 +400,53 @@ class AsyncFastSparkTTS:
                 max_tokens=max_tokens,
                 **kwargs
             )
-            return generated
+            current_global_tokens = generated['global_tokens'] if global_tokens is None else global_tokens
+            detokenizer_req = {
+                "global_tokens": current_global_tokens,
+                "semantic_tokens": generated['semantic_tokens']
+            }
+            audio = await self.audio_detokenizer.detokenize_async(
+                request=detokenizer_req
+            )
+            audio = audio["audio"][0].cpu().numpy().astype(np.float32)
+            return {
+                "audio": audio,
+                "completion": generated['completion'],
+                "global_tokens": current_global_tokens
+            }
 
         # 使用第一段生成音色token，将其与后面片段一起拼接，使用相同音色token引导输出semantic tokens。
-        first_prompt = process_prompt_control(segments[0], gender, pitch, speed)
-        first_generated = await self._generate_audio_tokens(
-            prompt=first_prompt,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            max_tokens=max_tokens,
-            **kwargs
-        )
+        first_output = await generate_audio(segments[0], acoustic_prompt=None)
+
         if len(segments) > 1:
             # 提取关于音色的token部分
-            acoustic_prompt = re.findall(
+            first_acoustic = re.findall(
                 r"(<\|start_acoustic_token\|>.*?<\|end_global_token\|>)",
-                first_generated['completion'])
-            if len(acoustic_prompt) > 0:
-                acoustic_prompt = acoustic_prompt[0]
+                first_output['completion'])
+            if len(first_acoustic) > 0:
+                first_acoustic = first_acoustic[0]
             else:
-                acoustic_prompt = None
+                first_acoustic = None
+                logger.warning("第一个片段未成功生成音色相关tokens，将无法保存输出音频的音色一致性。")
 
             semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
-            limit_generate_tokens = limit_concurrency(semaphore)(generate_tokens)
+            limit_generate_audio = limit_concurrency(semaphore)(generate_audio)
 
-            tasks = [asyncio.create_task(limit_generate_tokens(segment, acoustic_prompt)) for segment in segments[1:]]
+            tasks = [asyncio.create_task(
+                limit_generate_audio(
+                    segment,
+                    acoustic_prompt=first_acoustic,
+                    global_tokens=first_output['global_tokens']
+                )
+            ) for segment in segments[1:]]
             # 并发执行所有任务
             generated_segments = await asyncio.gather(*tasks)
-            generated_segments = [first_generated] + generated_segments
-            semantic_tokens = torch.cat(
-                [generated["semantic_tokens"] for generated in generated_segments],
-                dim=0
-            )
+            generated_audios = [first_output['audio']] + [out['audio'] for out in generated_segments]
+            final_audio = np.concatenate(generated_audios, axis=0)
         else:
-            semantic_tokens = first_generated['semantic_tokens']
+            final_audio = first_output['audio']
 
-        # 使用同一个global tokens尝试固定住音色。
-        # 从这里可以看出，如果想要保持同一个音色，可以将acoustic_prompt和global_tokens保存下来即可
-        detokenizer_req = {
-            "global_tokens": first_generated['global_tokens'],
-            "semantic_tokens": semantic_tokens
-        }
-        audio = await self.audio_detokenizer.detokenize_async(
-            request=detokenizer_req
-        )
-        audio = audio["audio"][0].cpu().numpy().astype(np.float32)
-        return audio
+        return final_audio
 
     def speak(
             self,

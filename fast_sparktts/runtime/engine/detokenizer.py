@@ -65,12 +65,16 @@ class DeTokenizer:
 
     async def batch_detokenize_async(self, requests: list[dict[str, torch.Tensor]]) -> list[dict[str, torch.Tensor]]:
         semantic_tokens, global_tokens = [], []
+        lengths = []
         for request in requests:
             semantic_tokens.append(request["semantic_tokens"])
             global_tokens.append(request["global_tokens"])
+            lengths.append(len(request['semantic_tokens']))
         # Concatenate tokens for batch processing
         global_tokens = torch.stack(global_tokens, dim=0)
-        semantic_tokens = torch.stack(semantic_tokens, dim=0)
+        semantic_tokens = torch.nn.utils.rnn.pad_sequence(
+            semantic_tokens, batch_first=True, padding_value=0
+        )
 
         audios = self.detokenize(
             semantic_tokens=semantic_tokens,
@@ -79,8 +83,9 @@ class DeTokenizer:
         # Prepare responses
         responses = []
         for i in range(len(requests)):
+            audio = audios[i, :, :(lengths[i] * 320)]  # 大概一个token对应audio长度320
             responses.append({
-                "audio": audios[i],
+                "audio": audio,
             })
 
         return responses
