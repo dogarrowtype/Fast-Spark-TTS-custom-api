@@ -2,6 +2,8 @@
 # Project : Fast-Spark-TTS
 # Time    : 2025/3/13 12:32
 # Author  : Hui Huang
+import numpy as np
+
 from fast_sparktts import AsyncFastSparkTTS
 import soundfile as sf
 
@@ -182,6 +184,38 @@ def clone_long_voice(engine: AsyncFastSparkTTS):
         window_size=100,
     )
     return wav
+
+
+async def async_generate_voice_stream(engine: AsyncFastSparkTTS):
+    """
+    流式音频合成示例
+    """
+    audios = []
+    async for chunk in engine.generate_voice_stream_async(
+            text=long_text,
+            split=True,
+            window_size=100
+    ):
+        audios.append(chunk)
+
+    audio = np.concatenate(audios)
+    return audio
+
+
+async def async_clone_voice_stream(engine: AsyncFastSparkTTS):
+    """
+    异步流式语音克隆示例
+    """
+    audios = []
+    async for chunk in engine.clone_voice_stream_async(
+            text=long_text,
+            reference_audio="data/roles/赞助商/reference_audio.wav",
+            split=True,
+            window_size=100
+    ):
+        audios.append(chunk)
+    audio = np.concatenate(audios)
+    return audio
 
 
 def main():

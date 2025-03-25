@@ -1,12 +1,37 @@
 # -*- coding: utf-8 -*-
 # Time      :2025/3/19 12:30
 # Author    :Hui Huang
-from typing import Optional, Literal
+from threading import Thread
+from typing import Optional, Literal, AsyncIterator
 
 import torch
 
 from .generator import Generator
-from transformers import AutoModelForCausalLM, GenerationConfig
+from transformers import AutoModelForCausalLM, GenerationConfig, TextIteratorStreamer, StoppingCriteria, \
+    StoppingCriteriaList
+import uuid
+
+
+class StopOnTokens(StoppingCriteria):
+    def __init__(self, stop_token_ids):
+        self.stop_token_ids = stop_token_ids
+        self.stop = []
+
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+
+        for i, input_id in enumerate(input_ids):
+            if i >= len(self.stop):
+                self.stop.append(False)
+
+            if input_id[-1] in self.stop_token_ids:
+                self.stop[i] = True
+            if self.stop[i]:
+                input_ids[i][-1] = self.stop_token_ids[0]
+
+        if all(self.stop):
+            self.stop = []
+            return True
+        return False
 
 
 class TorchGenerator(Generator):
@@ -27,6 +52,8 @@ class TorchGenerator(Generator):
             **kwargs
         )
         self.model.eval().to(self.device)
+
+        self.streamer: dict[str, TextIteratorStreamer] = {}
 
         super(TorchGenerator, self).__init__(
             tokenizer=model_path,
@@ -78,3 +105,47 @@ class TorchGenerator(Generator):
         completion_ids = generated_ids[:, prompt_length:]
         completions_text = self.tokenizer.batch_decode(completion_ids, skip_special_tokens=True)
         return completions_text[0]
+
+    async def async_stream_generate(
+            self,
+            prompt: str,
+            max_tokens: int = 1024,
+            temperature: float = 0.6,
+            top_p: float = 0.9,
+            top_k: int = 50,
+            **kwargs) -> AsyncIterator[str]:
+        input_ids = self.tokenize(prompt, self.max_length - max_tokens)
+
+        input_ids = torch.LongTensor([input_ids]).to(self.device)
+        request_id = str(uuid.uuid4().hex)
+
+        # 避免并发请求时，streamer错乱
+        self.streamer[request_id] = TextIteratorStreamer(
+            self.tokenizer,
+            skip_prompt=True,
+            skip_special_tokens=True)
+        cur_streamer = self.streamer[request_id]
+        stop_criteria = StoppingCriteriaList([StopOnTokens(self.stop_token_ids)])
+
+        generation_kwargs = dict(
+            input_ids=input_ids,
+            streamer=cur_streamer,
+            generation_config=GenerationConfig(
+                max_length=self.max_length,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                do_sample=True,
+                cache_implementation=self.cache_implementation,
+                **kwargs
+            ),
+            use_cache=True,
+            stopping_criteria=stop_criteria)
+        Thread(target=self.model.generate, kwargs=generation_kwargs).start()
+        for token in cur_streamer:
+            yield token
+
+        self.streamer.pop(request_id)

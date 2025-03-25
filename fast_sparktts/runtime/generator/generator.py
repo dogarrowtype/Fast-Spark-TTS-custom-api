@@ -2,7 +2,7 @@
 # Project : Fast-Spark-TTS
 # Time    : 2025/3/13 10:57
 # Author  : Hui Huang
-from typing import List
+from typing import List, AsyncIterator
 from transformers import AutoTokenizer
 import uuid
 
@@ -20,6 +20,7 @@ class Generator:
         if self.tokenizer.eos_token_id is not None:
             stop_token_ids = stop_token_ids + [self.tokenizer.eos_token_id]
         self.stop_token_ids = stop_token_ids
+        self.stop_tokens = self.tokenizer.convert_ids_to_tokens(self.stop_token_ids)
 
     def tokenize(self, text: str, max_length: int) -> List[int]:
         tokens = self.tokenizer.encode(
@@ -45,3 +46,13 @@ class Generator:
             **kwargs
     ) -> str:
         raise NotImplementedError("generate method not implemented")
+
+    async def async_stream_generate(
+            self,
+            prompt: str,
+            max_tokens: int = 1024,
+            temperature: float = 0.6,
+            top_p: float = 0.9,
+            top_k: int = 50,
+            **kwargs) -> AsyncIterator[str]:
+        yield NotImplementedError

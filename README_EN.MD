@@ -16,6 +16,7 @@
 - 📱 **Lightweight Deployment**: Minimal dependencies, with rapid startup based on Flask and fastapi
 - 🎨 **Clean Interface**: Features a modern, standardized UI
 - 🔊 **Long Text Speech Synthesis**: Capable of synthesizing extended texts while maintaining consistent voice timbre
+- 🔄 **Streaming Text-to-Speech Support**: Enables real-time synthesis with simultaneous generation and playback, reducing waiting times and enhancing the interactive experience
 
 ## 🖼️ Interface Preview
 

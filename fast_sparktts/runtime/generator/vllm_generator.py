@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Time      :2025/3/13 20:31
 # Author    :Hui Huang
+from typing import AsyncIterator
+
 from .generator import Generator
 
 
@@ -19,6 +21,8 @@ class VllmGenerator(Generator):
             max_model_len=max_length,
             gpu_memory_utilization=gpu_memory_utilization,
             device=device,
+            disable_log_stats=True,
+            disable_log_requests=True,
             **kwargs
         )
         async_args = AsyncEngineArgs(**engine_kwargs)
@@ -30,15 +34,14 @@ class VllmGenerator(Generator):
             max_length=max_length,
         )
 
-    async def async_generate(
+    async def _get_vllm_generator(
             self,
             prompt: str,
             max_tokens: int = 1024,
             temperature: float = 0.6,
             top_p: float = 0.9,
             top_k: int = 50,
-            **kwargs
-    ) -> str:
+            **kwargs):
         from vllm import SamplingParams
 
         prompt_tokens = self.tokenize(prompt, self.max_length - max_tokens)
@@ -55,6 +58,25 @@ class VllmGenerator(Generator):
             prompt=inputs,
             request_id=await self.random_uid(),
             sampling_params=sampling_params)
+        return results_generator
+
+    async def async_generate(
+            self,
+            prompt: str,
+            max_tokens: int = 1024,
+            temperature: float = 0.6,
+            top_p: float = 0.9,
+            top_k: int = 50,
+            **kwargs
+    ) -> str:
+        results_generator = await self._get_vllm_generator(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            **kwargs
+        )
         final_res = None
 
         async for res in results_generator:
@@ -64,3 +86,26 @@ class VllmGenerator(Generator):
         for output in final_res.outputs:
             choices.append(output.text)
         return choices[0]
+
+    async def async_stream_generate(
+            self,
+            prompt: str,
+            max_tokens: int = 1024,
+            temperature: float = 0.6,
+            top_p: float = 0.9,
+            top_k: int = 50,
+            **kwargs) -> AsyncIterator[str]:
+        results_generator = await self._get_vllm_generator(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            **kwargs
+        )
+        previous_texts = ""
+        async for res in results_generator:
+            for output in res.outputs:
+                delta_text = output.text[len(previous_texts):]
+                previous_texts = output.text
+                yield delta_text

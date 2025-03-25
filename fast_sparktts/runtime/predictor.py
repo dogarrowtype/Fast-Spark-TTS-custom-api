@@ -2,10 +2,11 @@
 # Time      :2025/3/13 20:37
 # Author    :Hui Huang
 import asyncio
+import math
 import os
 import random
 import re
-from typing import Optional, Literal
+from typing import Optional, Literal, AsyncIterator
 import numpy as np
 import torch
 from .logger import get_logger
@@ -227,6 +228,21 @@ class AsyncFastSparkTTS:
 
         return output
 
+    async def tokens2wav(
+            self,
+            global_tokens: torch.Tensor,
+            semantic_tokens: torch.Tensor
+    ) -> np.ndarray:
+        detokenizer_req = {
+            "global_tokens": global_tokens,
+            "semantic_tokens": semantic_tokens,
+        }
+        audio = await self.audio_detokenizer.detokenize_async(
+            request=detokenizer_req
+        )
+        audio = audio["audio"][0].cpu().numpy().astype(np.float32)
+        return audio
+
     async def _clone_voice_by_tokens(
             self,
             text: str,
@@ -260,15 +276,10 @@ class AsyncFastSparkTTS:
                 max_tokens=max_tokens,
                 **kwargs
             )
-            detokenizer_req = {
-                "global_tokens": global_tokens,
-                "semantic_tokens": generated["semantic_tokens"],
-            }
-            audio = await self.audio_detokenizer.detokenize_async(
-                request=detokenizer_req
+            return await self.tokens2wav(
+                global_tokens=global_tokens,
+                semantic_tokens=generated["semantic_tokens"]
             )
-            audio = audio["audio"][0].cpu().numpy().astype(np.float32)
-            return audio
 
         if len(segments) > 1:
             semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
@@ -284,6 +295,146 @@ class AsyncFastSparkTTS:
             raise ValueError(f"请传入有效文本：{segments}")
 
         return final_audio
+
+    async def _post_process_chunk_audio(
+            self,
+            audio_idx: int,
+            semantic_tokens: list[int],
+            chunk_size: int,
+            global_tokens: torch.Tensor,
+            cross_fade_samples: int,
+            fade_in: np.ndarray,
+            fade_out: np.ndarray,
+            last_chunk_audio: np.ndarray,
+            overlap_chunk_size: int
+    ):
+        chunk_semantic_tokens = semantic_tokens[:chunk_size]
+        chunk_semantic_tokens = (
+            torch.tensor(chunk_semantic_tokens).to(torch.int32)
+        )
+        chunk_audio = await self.tokens2wav(
+            global_tokens=global_tokens,
+            semantic_tokens=chunk_semantic_tokens
+        )
+        if audio_idx == 0:
+            yield_audio = chunk_audio[:-cross_fade_samples]
+        else:
+            cross_faded_overlap = chunk_audio[:cross_fade_samples] * fade_in + last_chunk_audio[
+                                                                               -cross_fade_samples:] * fade_out
+            yield_audio = np.concatenate(
+                [cross_faded_overlap, chunk_audio[cross_fade_samples:-cross_fade_samples]], axis=0)
+
+        return {
+            "yield_audio": yield_audio,
+            "audio_idx": audio_idx + 1,
+            "last_chunk_audio": chunk_audio,
+            "semantic_tokens": semantic_tokens[chunk_size - overlap_chunk_size:]
+        }
+
+    async def _clone_voice_stream_by_tokens(
+            self,
+            text: str,
+            global_tokens: torch.Tensor,
+            semantic_tokens: torch.Tensor,
+            reference_text: Optional[str] = None,
+            temperature: float = 0.8,
+            top_k: int = 50,
+            top_p: float = 0.95,
+            max_tokens: int = 4096,
+            split: bool = False,
+            window_size: int = 100,
+            audio_chunk_duration: float = 1.0,
+            max_audio_chunk_duration: float = 8.0,
+            audio_chunk_size_scale_factor: float = 2.0,
+            audio_chunk_overlap_duration: float = 0.1,
+            **kwargs) -> AsyncIterator[np.ndarray]:
+        if audio_chunk_duration < 0.5:
+            err_msg = "audio_chunk_duration at least 0.5 seconds"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if audio_chunk_size_scale_factor < 1.0:
+            err_msg = "audio_chunk_size_scale_factor should be greater than 1, change it according to your actual rtf"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        audio_tokenizer_frame_rate = 50
+        max_chunk_size = math.ceil(max_audio_chunk_duration * audio_tokenizer_frame_rate)
+        chunk_size = math.ceil(audio_chunk_duration * audio_tokenizer_frame_rate)
+        overlap_chunk_size = math.ceil(audio_chunk_overlap_duration * audio_tokenizer_frame_rate)
+        cross_fade_samples = int(audio_chunk_overlap_duration * 16000)
+        fade_out = np.linspace(1, 0, cross_fade_samples)
+        fade_in = np.linspace(0, 1, cross_fade_samples)
+
+        if split:
+            segments = split_text(text, window_size)
+        else:
+            segments = [text]
+
+        prompts = []
+        for segment in segments:
+            prompt, _ = process_prompt(
+                text=segment,
+                prompt_text=reference_text,
+                global_token_ids=global_tokens,
+                semantic_token_ids=semantic_tokens,
+            )
+            prompts.append(prompt)
+
+        out_semantic_tokens = []
+        audio_index = 0
+        last_audio = None
+        for prompt in prompts:
+            async for tokens in self.generator.async_stream_generate(
+                    prompt=prompt,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                    **kwargs
+            ):
+                pred_semantic_tokens = [
+                    int(token) for token in re.findall(r"bicodec_semantic_(\d+)", tokens)]
+
+                out_semantic_tokens.extend(pred_semantic_tokens)
+
+                if len(out_semantic_tokens) >= chunk_size:
+                    processed = await self._post_process_chunk_audio(
+                        audio_idx=audio_index,
+                        semantic_tokens=out_semantic_tokens,
+                        chunk_size=chunk_size,
+                        global_tokens=global_tokens,
+                        cross_fade_samples=cross_fade_samples,
+                        fade_in=fade_in,
+                        fade_out=fade_out,
+                        last_chunk_audio=last_audio,
+                        overlap_chunk_size=overlap_chunk_size
+                    )
+
+                    yield processed['yield_audio']
+
+                    audio_index = processed['audio_idx']
+                    last_audio = processed["last_chunk_audio"]
+                    out_semantic_tokens = processed["semantic_tokens"]
+                    # increase chunk size for better speech quality
+                    chunk_size = min(max_chunk_size, int(chunk_size * audio_chunk_size_scale_factor))
+
+        if len(out_semantic_tokens) > 0:
+            processed = await self._post_process_chunk_audio(
+                audio_idx=audio_index,
+                semantic_tokens=out_semantic_tokens,
+                chunk_size=len(out_semantic_tokens),
+                global_tokens=global_tokens,
+                cross_fade_samples=cross_fade_samples,
+                fade_in=fade_in,
+                fade_out=fade_out,
+                last_chunk_audio=last_audio,
+                overlap_chunk_size=overlap_chunk_size
+            )
+
+            yield processed['yield_audio']
+            last_audio = processed['last_chunk_audio']
+
+        yield last_audio[-cross_fade_samples:]
 
     async def add_speaker(self, name: str, audio, reference_text: Optional[str] = None):
         if name in self.speakers:
@@ -334,6 +485,45 @@ class AsyncFastSparkTTS:
         )
         return audio
 
+    async def speak_stream_async(
+            self,
+            name: str,
+            text: str,
+            temperature: float = 0.8,
+            top_k: int = 50,
+            top_p: float = 0.95,
+            max_tokens: int = 4096,
+            split: bool = False,
+            window_size: int = 100,
+            audio_chunk_duration: float = 1.0,
+            max_audio_chunk_duration: float = 8.0,
+            audio_chunk_size_scale_factor: float = 2.0,
+            audio_chunk_overlap_duration: float = 0.1,
+            **kwargs) -> AsyncIterator[np.ndarray]:
+        if name not in self.speakers:
+            err_msg = f"{name} 角色不存在。"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        speaker = self.speakers[name]
+        async for chunk in self._clone_voice_stream_by_tokens(
+                text=text,
+                global_tokens=speaker['global_tokens'],
+                semantic_tokens=speaker['semantic_tokens'],
+                reference_text=speaker['reference_text'],
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                split=split,
+                window_size=window_size,
+                audio_chunk_duration=audio_chunk_duration,
+                max_audio_chunk_duration=max_audio_chunk_duration,
+                audio_chunk_size_scale_factor=audio_chunk_size_scale_factor,
+                audio_chunk_overlap_duration=audio_chunk_overlap_duration,
+                **kwargs
+        ):
+            yield chunk
+
     async def clone_voice_async(
             self,
             text: str,
@@ -364,6 +554,45 @@ class AsyncFastSparkTTS:
             **kwargs
         )
         return audio
+
+    async def clone_voice_stream_async(
+            self,
+            text: str,
+            reference_audio,
+            reference_text: Optional[str] = None,
+            temperature: float = 0.8,
+            top_k: int = 50,
+            top_p: float = 0.95,
+            max_tokens: int = 4096,
+            split: bool = False,
+            window_size: int = 100,
+            audio_chunk_duration: float = 1.0,
+            max_audio_chunk_duration: float = 8.0,
+            audio_chunk_size_scale_factor: float = 2.0,
+            audio_chunk_overlap_duration: float = 0.1,
+            **kwargs) -> AsyncIterator[np.ndarray]:
+
+        tokens = await self._tokenize(
+            reference_audio
+        )
+        async for chunk in self._clone_voice_stream_by_tokens(
+                text=text,
+                global_tokens=tokens['global_tokens'],
+                semantic_tokens=tokens['semantic_tokens'],
+                reference_text=reference_text,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                split=split,
+                window_size=window_size,
+                audio_chunk_duration=audio_chunk_duration,
+                max_audio_chunk_duration=max_audio_chunk_duration,
+                audio_chunk_size_scale_factor=audio_chunk_size_scale_factor,
+                audio_chunk_overlap_duration=audio_chunk_overlap_duration,
+                **kwargs
+        ):
+            yield chunk
 
     async def generate_voice_async(
             self,
@@ -401,14 +630,11 @@ class AsyncFastSparkTTS:
                 **kwargs
             )
             current_global_tokens = generated['global_tokens'] if global_tokens is None else global_tokens
-            detokenizer_req = {
-                "global_tokens": current_global_tokens,
-                "semantic_tokens": generated['semantic_tokens']
-            }
-            audio = await self.audio_detokenizer.detokenize_async(
-                request=detokenizer_req
+
+            audio = await self.tokens2wav(
+                global_tokens=current_global_tokens,
+                semantic_tokens=generated['semantic_tokens']
             )
-            audio = audio["audio"][0].cpu().numpy().astype(np.float32)
             return {
                 "audio": audio,
                 "completion": generated['completion'],
@@ -447,6 +673,132 @@ class AsyncFastSparkTTS:
             final_audio = first_output['audio']
 
         return final_audio
+
+    async def generate_voice_stream_async(
+            self,
+            text: str,
+            gender: Optional[Literal["female", "male"]] = "female",
+            pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
+            speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
+            temperature: float = 0.8,
+            top_k: int = 50,
+            top_p: float = 0.95,
+            max_tokens: int = 4096,
+            split: bool = False,  # 是否需要对文本切分，通常用于长文本场景
+            window_size: int = 100,
+            audio_chunk_duration: float = 1.0,
+            max_audio_chunk_duration: float = 8.0,
+            audio_chunk_size_scale_factor: float = 2.0,
+            audio_chunk_overlap_duration: float = 0.1,
+            **kwargs) -> AsyncIterator[np.ndarray]:
+        if audio_chunk_duration < 0.5:
+            err_msg = "audio_chunk_duration at least 0.5 seconds"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if audio_chunk_size_scale_factor < 1.0:
+            err_msg = "audio_chunk_size_scale_factor should be greater than 1, change it according to your actual rtf"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        audio_tokenizer_frame_rate = 50
+        max_chunk_size = math.ceil(max_audio_chunk_duration * audio_tokenizer_frame_rate)
+        chunk_size = math.ceil(audio_chunk_duration * audio_tokenizer_frame_rate)
+        overlap_chunk_size = math.ceil(audio_chunk_overlap_duration * audio_tokenizer_frame_rate)
+        cross_fade_samples = int(audio_chunk_overlap_duration * 16000)
+        fade_out = np.linspace(1, 0, cross_fade_samples)
+        fade_in = np.linspace(0, 1, cross_fade_samples)
+
+        if split:
+            segments = split_text(text, window_size)
+        else:
+            segments = [text]
+
+        prompts = [process_prompt_control(segment, gender, pitch, speed) for segment in segments]
+
+        completion = ""
+        acoustic_prompt = None
+        global_tokens = None
+        semantic_tokens = []
+
+        audio_index = 0
+        last_audio = None
+
+        for i in range(len(segments)):
+            prompt = prompts[i]
+            if i > 0 and acoustic_prompt is not None:
+                prompt += acoustic_prompt
+            if i > 0 and (acoustic_prompt is None or global_tokens is None):
+                err_msg = "未成功生成音色prompt，本次推理失败"
+                logger.error(err_msg)
+                break
+            async for tokens in self.generator.async_stream_generate(
+                    prompt=prompt,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                    **kwargs
+            ):
+                completion += tokens
+                if acoustic_prompt is None and global_tokens is None:
+                    acoustics = re.findall(
+                        r"(<\|start_acoustic_token\|>.*?<\|end_global_token\|>)",
+                        completion)
+                    if len(acoustics) > 0:
+                        acoustic_prompt = acoustics[0]
+                        global_token_ids = [int(token) for token in
+                                            re.findall(r"bicodec_global_(\d+)", acoustic_prompt)]
+                        global_token_ids = (
+                            torch.tensor(global_token_ids).unsqueeze(0).long()
+                        )
+                        global_tokens = global_token_ids
+                        completion = ""
+                    else:
+                        continue
+                else:
+                    pred_semantic_tokens = [
+                        int(token) for token in re.findall(r"bicodec_semantic_(\d+)", tokens)]
+
+                    semantic_tokens.extend(pred_semantic_tokens)
+
+                if len(semantic_tokens) >= chunk_size:
+                    processed = await self._post_process_chunk_audio(
+                        audio_idx=audio_index,
+                        semantic_tokens=semantic_tokens,
+                        chunk_size=chunk_size,
+                        global_tokens=global_tokens,
+                        cross_fade_samples=cross_fade_samples,
+                        fade_in=fade_in,
+                        fade_out=fade_out,
+                        last_chunk_audio=last_audio,
+                        overlap_chunk_size=overlap_chunk_size,
+                    )
+
+                    yield processed['yield_audio']
+
+                    audio_index = processed['audio_idx']
+                    last_audio = processed['last_chunk_audio']
+                    semantic_tokens = processed['semantic_tokens']
+                    # increase chunk size for better speech quality
+                    chunk_size = min(max_chunk_size, int(chunk_size * audio_chunk_size_scale_factor))
+
+        if len(semantic_tokens) > 0:
+            processed = await self._post_process_chunk_audio(
+                audio_idx=audio_index,
+                semantic_tokens=semantic_tokens,
+                chunk_size=len(semantic_tokens),
+                global_tokens=global_tokens,
+                cross_fade_samples=cross_fade_samples,
+                fade_in=fade_in,
+                fade_out=fade_out,
+                last_chunk_audio=last_audio,
+                overlap_chunk_size=overlap_chunk_size,
+            )
+
+            yield processed['yield_audio']
+            last_audio = processed['last_chunk_audio']
+
+        yield last_audio[-cross_fade_samples:]
 
     def speak(
             self,

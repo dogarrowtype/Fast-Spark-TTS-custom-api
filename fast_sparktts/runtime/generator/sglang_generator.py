@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Time      :2025/3/13 21:22
 # Author    :Hui Huang
-from typing import Optional
+from typing import Optional, AsyncIterator
 
 from sglang.srt.entrypoints.engine import Engine
 from sglang.srt.server_args import PortArgs, ServerArgs
@@ -73,3 +73,35 @@ class SglangGenerator(Generator):
             choices.append(ret_item['text'])
 
         return choices[0]
+
+    async def async_stream_generate(
+            self,
+            prompt: str,
+            max_tokens: int = 1024,
+            temperature: float = 0.6,
+            top_p: float = 0.9,
+            top_k: int = 50,
+            **kwargs) -> AsyncIterator[str]:
+        prompt_tokens = self.tokenize(prompt, self.max_length - max_tokens)
+        obj = GenerateReqInput(
+            input_ids=prompt_tokens,
+            sampling_params={
+                "n": 1,
+                "max_new_tokens": max_tokens,
+                "stop_token_ids": self.stop_token_ids,
+                "temperature": temperature,
+                "top_p": top_p,
+                "top_k": top_k,
+                **kwargs
+            },
+            stream=True,
+        )
+        generator = self.model.tokenizer_manager.generate_request(obj, None)
+
+        previous_texts = ""
+
+        async for data in generator:
+            delta_text = data["text"][len(previous_texts):]
+            previous_texts = data["text"]
+
+            yield delta_text

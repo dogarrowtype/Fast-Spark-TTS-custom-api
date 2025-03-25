@@ -3,7 +3,7 @@
 # Time    : 2025/3/13 10:51
 # Author  : Hui Huang
 import os
-from typing import Optional
+from typing import Optional, AsyncIterator
 
 from .generator import Generator
 
@@ -57,3 +57,34 @@ class LlamaCPPGenerator(Generator):
         # Decode the generated tokens into text
         output = self.tokenizer.decode(completion_tokens)
         return output
+
+    async def async_stream_generate(
+            self,
+            prompt: str,
+            max_tokens: int = 1024,
+            temperature: float = 0.6,
+            top_p: float = 0.9,
+            top_k: int = 50,
+            **kwargs) -> AsyncIterator[str]:
+        prompt_tokens = self.tokenize(prompt, self.max_length - max_tokens)
+        completion_tokens = []
+        previous_texts = ""
+        for token in self.model.generate(
+                prompt_tokens,
+                top_k=top_k,
+                top_p=top_p,
+                temp=temperature,
+                **kwargs
+        ):
+            if token in self.stop_token_ids:
+                break
+            if len(completion_tokens) + len(prompt_tokens) >= self.max_length:
+                break
+            completion_tokens.append(token)
+
+            text = self.tokenizer.decode(completion_tokens)
+
+            delta_text = text[len(previous_texts):]
+            previous_texts = text
+
+            yield delta_text
