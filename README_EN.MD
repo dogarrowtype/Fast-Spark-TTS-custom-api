@@ -157,23 +157,22 @@ links: [huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B), [modelsc
 
 ## Inference Speed
 
-**Graphics Card:** A800
+- GPU: `A800`
+- For testing parameters and evaluation methods, please refer to [speed_test.py](speed_test.py)
+- Both output audio length (audio len) and inference time (cost time) are measured in seconds.
+- The evaluation includes both long-text and short-text scenarios.
+- The official code has not been evaluated; if needed, please conduct your own tests.
 
-Using [prompt_audio.wav](example/prompt_audio.wav) to test cloning speed, the inference is looped five times to
-calculate the average inference time (in seconds).
-
-Test code reference: [speed_test.py](speed_test.py)
-
-After using vllm, most of the processing time is spent on the audio tokenizer and vocoder rather than the LLM.
-Optimization using ONNX might further improve performance.
-
-|  engine   | device | Avg Time | Avg Time (warm up) |
-|:---------:|:------:|:--------:|:------------------:|
-| Official  |  CPU   |  27.20   |       27.30        |
-| Official  |  GPU   |   5.95   |        4.97        |
-| llama-cpp |  CPU   |  11.32   |       11.09        |
-|   vllm    |  GPU   |   1.95   |        1.22        |
-|  sglang   |  GPU   |   3.41   |        0.76        |
+|  Scenario  |  engine   | device | audio len | cost time |  RTF  |
+|:----------:|:---------:|:------:|:---------:|:---------:|:-----:|
+| Short Text | llama-cpp |  cpu   |   7.48    |   6.808   | 0.910 |
+| Short Text |   torch   |  gpu   |   7.18    |   7.675   | 1.069 |
+| Short Text |   vllm    |  gpu   |   7.24    |   1.664   | 0.230 |
+| Short Text |  sglang   |  gpu   |   7.58    |   1.073   | 0.142 |
+| Long Text  | llama-cpp |  cpu   |  121.98   |  117.828  | 0.966 |
+| Long Text  |   torch   |  gpu   |   113.7   |  107.167  | 0.943 |
+| Long Text  |   vllm    |  gpu   |  111.82   |   7.282   | 0.065 |
+| Long Text  |  sglang   |  gpu   |  117.02   |   4.197   | 0.036 |
 
 ## Local Usage
 

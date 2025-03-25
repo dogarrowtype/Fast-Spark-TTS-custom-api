@@ -93,6 +93,7 @@ cd Fast-Spark-TTS
 2. 启动SparkTTS API服务
 
 `engine`可根据自己的环境，选择对应的推理引擎。目前支持`torch`、`vllm`、`sglang`、`llama-cpp`。
+
 ```bash
 python server.py \
 --model_path Spark-TTS-0.5B \
@@ -150,21 +151,22 @@ http://localhost:8001
 
 ## 推理速度
 
-显卡：A800
+- 显卡：`A800`
+- 测试使用参数和评测方式可参考[speed_test.py](speed_test.py)
+- 输出音频长度(audio len)、推理耗时(cost time)单位都为秒。
+- 评测包括长文本和短文本场景。
+- 官方代码未评测，如有需求，可自行评测。
 
-使用[prompt_audio.wav](example/prompt_audio.wav)测试克隆速度，总共循环推理五次，计算平均推理时间 (s)。
-
-测试代码可参考[speed_test.py](speed_test.py)
-
-使用vllm后，主要耗时不在llm，而在audio tokenizer和vocoder，应该可以使用onnx进一步优化。
-
-|  engine   | device | Avg Time | 	Avg Time (warm up) |
-|:---------:|:------:|:--------:|:-------------------:|
-| Official  |  CPU   |  27.20   |        27.30        |
-| Official  |  GPU   |   5.95   |        4.97         |
-| llama-cpp |  CPU   |  11.32   |        11.09        |
-|   vllm    |  GPU   |   1.95   |        1.22         |
-|  sglang   |  GPU   |   3.41   |        0.76         |
+| 场景  |  engine   | device | audio len | cost time |  RTF  |
+|:---:|:---------:|:------:|:---------:|:---------:|:-----:|
+| 短文本 | llama-cpp |  cpu   |   7.48    |   6.808   | 0.910 |
+| 短文本 |   torch   |  gpu   |   7.18    |   7.675   | 1.069 |
+| 短文本 |   vllm    |  gpu   |   7.24    |   1.664   | 0.230 |
+| 短文本 |  sglang   |  gpu   |   7.58    |   1.073   | 0.142 |
+| 长文本 | llama-cpp |  cpu   |  121.98   |  117.828  | 0.966 |
+| 长文本 |   torch   |  gpu   |   113.7   |  107.167  | 0.943 |
+| 长文本 |   vllm    |  gpu   |  111.82   |   7.282   | 0.065 |
+| 长文本 |  sglang   |  gpu   |  117.02   |   4.197   | 0.036 |
 
 ## 本地使用
 
@@ -183,6 +185,7 @@ http://localhost:8001
 该项目提供了零样本语音克隆 TTS 模型，旨在用于学术研究、教育目的和合法应用，例如个性化语音合成、辅助技术和语言研究。
 
 请注意：
+
 - 请勿将此模型用于未经授权的语音克隆、冒充、欺诈、诈骗、深度伪造或任何非法活动。
 
 - 确保使用此模型时遵守当地的法律法规并遵守道德标准。

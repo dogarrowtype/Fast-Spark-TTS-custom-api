@@ -15,7 +15,7 @@ class Generator:
             self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
         else:
             self.tokenizer = tokenizer
-        stop_tokens = ["<|im_end|>"]
+        stop_tokens = ["<|im_end|>", "<|end_semantic_token|>"]
         stop_token_ids = self.tokenizer.convert_tokens_to_ids(stop_tokens)
         if self.tokenizer.eos_token_id is not None:
             stop_token_ids = stop_token_ids + [self.tokenizer.eos_token_id]
