@@ -630,7 +630,8 @@
                         <div class="form-group">
                             <label for="clone-max-tokens">Max Tokens</label>
                             <div class="range-control">
-                                <input type="range" id="clone-max-tokens" name="max_tokens" min="64" max="8192" step="32"
+                                <input type="range" id="clone-max-tokens" name="max_tokens" min="64" max="8192"
+                                       step="32"
                                        value="4096" oninput="updateRangeValue(this)">
                                 <span id="clone-max-tokens-value">4096</span>
                             </div>
@@ -827,7 +828,6 @@
     }
 
     // 语音生成表单提交
-    // 修改语音生成表单提交事件
     document.getElementById('generate-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(this);
@@ -844,29 +844,28 @@
                 method: 'POST',
                 body: formData
             });
-            const data = await response.json();
-            if (data.success) {
-                // 停止计时
-                stopTimer('generate', startTime);
-
-                showAlert('generate', data.message, 'success');
-                const audio = document.getElementById('generate-audio');
-                audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
-                const downloadBtn = document.getElementById('generate-download');
-                downloadBtn.onclick = function () {
-                    const link = document.createElement('a');
-                    link.href = audio.src;
-                    link.download = 'generated_voice.wav';
-                    link.click();
-                };
-                result.style.display = 'block';
-            } else {
-                // 停止计时
-                stopTimer('generate', startTime);
-                showAlert('generate', data.message, 'error');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || '语音生成失败');
             }
-        } catch (error) {
+            // 获取返回的 wav 音频 Blob
+            const blob = await response.blob();
+
             // 停止计时
+            stopTimer('generate', startTime);
+
+            showAlert('generate', '语音生成成功', 'success');
+            const audio = document.getElementById('generate-audio');
+            audio.src = URL.createObjectURL(blob);
+            const downloadBtn = document.getElementById('generate-download');
+            downloadBtn.onclick = function () {
+                const link = document.createElement('a');
+                link.href = audio.src;
+                link.download = 'generated_voice.wav';
+                link.click();
+            };
+            result.style.display = 'block';
+        } catch (error) {
             stopTimer('generate', startTime);
             showAlert('generate', `生成失败: ${error.message}`, 'error');
         } finally {
@@ -874,11 +873,11 @@
         }
     });
 
-    // 修改声音克隆表单提交事件
+    // 声音克隆表单提交
     document.getElementById('clone-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(this);
-        // 如果用户未输入参考文本，则删除reference_text
+        // 如果用户未输入参考文本，则删除 reference_text
         if (!formData.get('reference_text')) {
             formData.delete('reference_text');
         }
@@ -895,29 +894,24 @@
                 method: 'POST',
                 body: formData
             });
-            const data = await response.json();
-            if (data.success) {
-                // 停止计时
-                stopTimer('clone', startTime);
-
-                showAlert('clone', data.message, 'success');
-                const audio = document.getElementById('clone-audio');
-                audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
-                const downloadBtn = document.getElementById('clone-download');
-                downloadBtn.onclick = function () {
-                    const link = document.createElement('a');
-                    link.href = audio.src;
-                    link.download = 'cloned_voice.wav';
-                    link.click();
-                };
-                result.style.display = 'block';
-            } else {
-                // 停止计时
-                stopTimer('clone', startTime);
-                showAlert('clone', data.message, 'error');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || '声音克隆失败');
             }
+            const blob = await response.blob();
+            stopTimer('clone', startTime);
+            showAlert('clone', '声音克隆成功', 'success');
+            const audio = document.getElementById('clone-audio');
+            audio.src = URL.createObjectURL(blob);
+            const downloadBtn = document.getElementById('clone-download');
+            downloadBtn.onclick = function () {
+                const link = document.createElement('a');
+                link.href = audio.src;
+                link.download = 'cloned_voice.wav';
+                link.click();
+            };
+            result.style.display = 'block';
         } catch (error) {
-            // 停止计时
             stopTimer('clone', startTime);
             showAlert('clone', `克隆失败: ${error.message}`, 'error');
         } finally {
@@ -925,7 +919,7 @@
         }
     });
 
-    // 修改角色克隆表单提交事件
+    // 角色克隆表单提交
     document.getElementById('clone-role-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(this);
@@ -942,29 +936,24 @@
                 method: 'POST',
                 body: formData
             });
-            const data = await response.json();
-            if (data.success) {
-                // 停止计时
-                stopTimer('clone-role', startTime);
-
-                showAlert('clone-role', data.message, 'success');
-                const audio = document.getElementById('clone-role-audio');
-                audio.src = `/play_audio/${encodeURIComponent(data.file_path)}`;
-                const downloadBtn = document.getElementById('clone-role-download');
-                downloadBtn.onclick = function () {
-                    const link = document.createElement('a');
-                    link.href = audio.src;
-                    link.download = 'cloned_voice.wav';
-                    link.click();
-                };
-                result.style.display = 'block';
-            } else {
-                // 停止计时
-                stopTimer('clone-role', startTime);
-                showAlert('clone-role', data.message, 'error');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || '角色克隆失败');
             }
+            const blob = await response.blob();
+            stopTimer('clone-role', startTime);
+            showAlert('clone-role', '角色克隆成功', 'success');
+            const audio = document.getElementById('clone-role-audio');
+            audio.src = URL.createObjectURL(blob);
+            const downloadBtn = document.getElementById('clone-role-download');
+            downloadBtn.onclick = function () {
+                const link = document.createElement('a');
+                link.href = audio.src;
+                link.download = 'cloned_voice.wav';
+                link.click();
+            };
+            result.style.display = 'block';
         } catch (error) {
-            // 停止计时
             stopTimer('clone-role', startTime);
             showAlert('clone-role', `角色克隆失败: ${error.message}`, 'error');
         } finally {
