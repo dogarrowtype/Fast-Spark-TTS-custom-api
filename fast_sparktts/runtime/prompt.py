@@ -3,8 +3,15 @@
 # Author    :Hui Huang
 import re
 from typing import Optional, Tuple, Literal, Callable
-
+import regex
 import torch
+
+try:
+    import inflect
+
+    inflect_parser = inflect.engine()
+except:
+    inflect_parser = None
 
 TASK_TOKEN_MAP = {
     "vc": "<|task_vc|>",
@@ -146,6 +153,78 @@ def contains_chinese(s: str) -> bool:
     return bool(re.search(r'[\u4e00-\u9fff]', s))
 
 
+# 以下代码从cosyvoice项目copy的
+def is_only_punctuation(text):
+    # Regular expression: Match strings that consist only of punctuation marks or are empty.
+    punctuation_pattern = r'^[\p{P}\p{S}]*$'
+    return bool(regex.fullmatch(punctuation_pattern, text))
+
+
+def replace_corner_mark(text):
+    text = text.replace('²', '平方')
+    text = text.replace('³', '立方')
+    return text
+
+
+# remove meaningless symbol
+def remove_bracket(text):
+    text = text.replace('（', '').replace('）', '')
+    text = text.replace('【', '').replace('】', '')
+    text = text.replace('`', '').replace('`', '')
+    text = text.replace("——", " ")
+    return text
+
+
+def replace_blank(text: str):
+    out_str = []
+    for i, c in enumerate(text):
+        if c == " ":
+            if ((text[i + 1].isascii() and text[i + 1] != " ") and
+                    (text[i - 1].isascii() and text[i - 1] != " ")):
+                out_str.append(c)
+        else:
+            out_str.append(c)
+    return "".join(out_str)
+
+
+# spell Arabic numerals
+def spell_out_number(text: str):
+    new_text = []
+    st = None
+    for i, c in enumerate(text):
+        if not c.isdigit():
+            if st is not None:
+                num_str = inflect_parser.number_to_words(text[st: i])
+                new_text.append(num_str)
+                st = None
+            new_text.append(c)
+        else:
+            if st is None:
+                st = i
+    if st is not None and st < len(text):
+        num_str = inflect_parser.number_to_words(text[st:])
+        new_text.append(num_str)
+    return ''.join(new_text)
+
+
+def text_normalize(text: str) -> str:
+    if contains_chinese(text):
+        text = text.replace("\n", "")
+        text = replace_blank(text)
+        text = replace_corner_mark(text)
+        text = text.replace(".", "。")
+        text = text.replace(" - ", "，")
+        text = remove_bracket(text)
+        text = re.sub(r'[，,、]+$', '。', text)
+        if text[-1] not in ['。', '？', '！', '；', '：', '、', '.', '?', '!', ';']:
+            text += "。"
+    elif inflect_parser is not None:
+        text = spell_out_number(text)
+        if text[-1] not in ['.', '?', '!', ';', ':']:
+            text += "."
+    return text
+
+
 def split_text(
         text: str,
         window_size: int,
@@ -161,8 +240,10 @@ def split_text(
     :param split_fn: 片段切分方法，如果传入就使用自定义切分函数
     :return: 切分后的文本片段列表
     """
+    text = text_normalize(text)
+
     if split_fn is None:
-        sentences = re.split(r'(?<=[。？！.!?])', text)
+        sentences = re.split(r'(?<=[。？！；;.!?：:])', text)
         # 去除拆分过程中产生的空字符串，并去除两侧空白
     else:
         sentences = split_fn(text)
@@ -189,4 +270,4 @@ def split_text(
                 current_segment += sentence
     if current_segment:
         segments.append(current_segment)
-    return [seg for seg in segments if len(seg.strip()) > 0]
+    return [seg for seg in segments if not is_only_punctuation(seg)]
