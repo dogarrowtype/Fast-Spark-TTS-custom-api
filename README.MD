@@ -111,7 +111,9 @@ python server.py \
 --port 8000
 ```
 
-3. 启动Web界面
+3. 启动flask Web界面 (和gradio web 任选一个)
+
+flask前端启动命令：
 
 ```bash
 python frontend.py \
@@ -122,10 +124,40 @@ python frontend.py \
 --port 8001
 ```
 
-4. 在浏览器中访问
+在浏览器中访问flask前端
 
 ```
 http://localhost:8001
+```
+
+4. 启动gradio webui (和flask前端任选一个)
+
+启动`gradio`前，如果需要使用流式播放，请先安装`ffmpeg`，`windows`环境安装好之后配置环境变量，重启电脑再使用。
+
+如果不使用流式播放，也不想安装`ffmpeg`，请使用flask前端，或者参考[webui.py](webui.py)中的注释修改代码，取消流式播放。
+
+请注意，目前`gradio`拼接流式音频有问题，拼接部分会卡顿。
+
+然后安装`gradio`：
+
+```bash
+pip install gradio
+```
+启动`gradio`：
+
+```bash
+python frontend.py \
+--backend_url http://127.0.0.1:8000 \  # 自定义后端地址
+--length_threshold 100 \  # 长文本阈值，超过这个长度启动长文本语音合成。
+--window_size 100 \  # 长文本推理时，文本片段切分的窗口大小
+--host 0.0.0.0 \ 
+--port 7860
+```
+
+在浏览器中访问gradio web ui
+
+```
+http://localhost:7860
 ```
 
 ## 🚀 使用指南

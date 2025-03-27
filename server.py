@@ -396,7 +396,7 @@ if __name__ == '__main__':
                         help="存放已有角色信息的目录")
     parser.add_argument("--api_key", type=str, default=None,
                         help="设置接口访问限制：Api key")
-    parser.add_argument("--seed", type=int, default=8000, help="随机种子")
+    parser.add_argument("--seed", type=int, default=0, help="随机种子")
     parser.add_argument("--batch_size", type=int, default=32, help="音频处理组件单批次处理的最大请求数。")
     parser.add_argument("--wait_timeout", type=float, default=0.01, help="动态批处理请求超时阈值，单位为秒。")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="服务监听地址")

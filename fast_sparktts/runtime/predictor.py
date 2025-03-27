@@ -63,7 +63,7 @@ class AsyncFastSparkTTS:
             **kwargs:
         """
         self.seed = seed
-        self.set_seed(seed)
+        self.set_seed()
 
         self.audio_tokenizer = Tokenizer(
             model_path,
@@ -93,8 +93,8 @@ class AsyncFastSparkTTS:
         self.speakers = {}
         self._batch_size = batch_size
 
-    @classmethod
-    def set_seed(cls, seed: int = 0):
+    def set_seed(self):
+        seed = self.seed
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -472,6 +472,7 @@ class AsyncFastSparkTTS:
             err_msg = f"{name} 角色不存在。"
             logger.error(err_msg)
             raise ValueError(err_msg)
+        self.set_seed()
         speaker = self.speakers[name]
         audio = await self._clone_voice_by_tokens(
             text=text,
@@ -510,6 +511,7 @@ class AsyncFastSparkTTS:
             logger.error(err_msg)
             raise ValueError(err_msg)
         speaker = self.speakers[name]
+        self.set_seed()
         async for chunk in self._clone_voice_stream_by_tokens(
                 text=text,
                 global_tokens=speaker['global_tokens'],
@@ -543,7 +545,7 @@ class AsyncFastSparkTTS:
             window_size: int = 100,
             split_fn: Optional[Callable[[str], list[str]]] = None,
             **kwargs) -> np.ndarray:
-
+        self.set_seed()
         tokens = await self._tokenize(
             reference_audio
         )
@@ -581,6 +583,7 @@ class AsyncFastSparkTTS:
             audio_chunk_overlap_duration: float = 0.1,
             **kwargs) -> AsyncIterator[np.ndarray]:
 
+        self.set_seed()
         tokens = await self._tokenize(
             reference_audio
         )
@@ -623,7 +626,7 @@ class AsyncFastSparkTTS:
             segments = split_text(text, window_size, split_fn=split_fn)
         else:
             segments = [text]
-
+        self.set_seed()
         async def generate_audio(
                 segment: str,
                 acoustic_prompt: Optional[str] = None,
@@ -703,6 +706,7 @@ class AsyncFastSparkTTS:
             audio_chunk_size_scale_factor: float = 2.0,
             audio_chunk_overlap_duration: float = 0.1,
             **kwargs) -> AsyncIterator[np.ndarray]:
+        self.set_seed()
         if audio_chunk_duration < 0.5:
             err_msg = "audio_chunk_duration at least 0.5 seconds"
             logger.error(err_msg)
