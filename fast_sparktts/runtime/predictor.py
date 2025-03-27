@@ -6,7 +6,7 @@ import math
 import os
 import random
 import re
-from typing import Optional, Literal, AsyncIterator
+from typing import Optional, Literal, AsyncIterator, Callable
 import numpy as np
 import torch
 from .logger import get_logger
@@ -149,7 +149,7 @@ class AsyncFastSparkTTS:
             from .generator.torch_generator import TorchGenerator
 
             generator = TorchGenerator(
-                model_path=os.path.join(model_path, "LLM"),
+                model_path=llm_path,
                 max_length=max_length,
                 device=llm_device,
                 attn_implementation=llm_attn_implementation,
@@ -255,9 +255,10 @@ class AsyncFastSparkTTS:
             max_tokens: int = 4096,
             split: bool = False,
             window_size: int = 100,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
             **kwargs) -> np.ndarray:
         if split:
-            segments = split_text(text, window_size=window_size)
+            segments = split_text(text, window_size=window_size, split_fn=split_fn)
         else:
             segments = [text]
 
@@ -343,6 +344,7 @@ class AsyncFastSparkTTS:
             max_tokens: int = 4096,
             split: bool = False,
             window_size: int = 100,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
             audio_chunk_duration: float = 1.0,
             max_audio_chunk_duration: float = 8.0,
             audio_chunk_size_scale_factor: float = 2.0,
@@ -366,7 +368,7 @@ class AsyncFastSparkTTS:
         fade_in = np.linspace(0, 1, cross_fade_samples)
 
         if split:
-            segments = split_text(text, window_size)
+            segments = split_text(text, window_size, split_fn=split_fn)
         else:
             segments = [text]
 
@@ -464,6 +466,7 @@ class AsyncFastSparkTTS:
             max_tokens: int = 4096,
             split: bool = False,
             window_size: int = 100,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
             **kwargs) -> np.ndarray:
         if name not in self.speakers:
             err_msg = f"{name} 角色不存在。"
@@ -481,6 +484,7 @@ class AsyncFastSparkTTS:
             max_tokens=max_tokens,
             split=split,
             window_size=window_size,
+            split_fn=split_fn,
             **kwargs
         )
         return audio
@@ -495,6 +499,7 @@ class AsyncFastSparkTTS:
             max_tokens: int = 4096,
             split: bool = False,
             window_size: int = 100,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
             audio_chunk_duration: float = 1.0,
             max_audio_chunk_duration: float = 8.0,
             audio_chunk_size_scale_factor: float = 2.0,
@@ -516,6 +521,7 @@ class AsyncFastSparkTTS:
                 max_tokens=max_tokens,
                 split=split,
                 window_size=window_size,
+                split_fn=split_fn,
                 audio_chunk_duration=audio_chunk_duration,
                 max_audio_chunk_duration=max_audio_chunk_duration,
                 audio_chunk_size_scale_factor=audio_chunk_size_scale_factor,
@@ -535,6 +541,7 @@ class AsyncFastSparkTTS:
             max_tokens: int = 4096,
             split: bool = False,
             window_size: int = 100,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
             **kwargs) -> np.ndarray:
 
         tokens = await self._tokenize(
@@ -551,6 +558,7 @@ class AsyncFastSparkTTS:
             max_tokens=max_tokens,
             split=split,
             window_size=window_size,
+            split_fn=split_fn,
             **kwargs
         )
         return audio
@@ -566,6 +574,7 @@ class AsyncFastSparkTTS:
             max_tokens: int = 4096,
             split: bool = False,
             window_size: int = 100,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
             audio_chunk_duration: float = 1.0,
             max_audio_chunk_duration: float = 8.0,
             audio_chunk_size_scale_factor: float = 2.0,
@@ -586,6 +595,7 @@ class AsyncFastSparkTTS:
                 max_tokens=max_tokens,
                 split=split,
                 window_size=window_size,
+                split_fn=split_fn,
                 audio_chunk_duration=audio_chunk_duration,
                 max_audio_chunk_duration=max_audio_chunk_duration,
                 audio_chunk_size_scale_factor=audio_chunk_size_scale_factor,
@@ -606,10 +616,11 @@ class AsyncFastSparkTTS:
             max_tokens: int = 4096,
             split: bool = False,  # 是否需要对文本切分，通常用于长文本场景
             window_size: int = 100,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
             **kwargs) -> np.ndarray:
 
         if split:
-            segments = split_text(text, window_size)
+            segments = split_text(text, window_size, split_fn=split_fn)
         else:
             segments = [text]
 
@@ -686,6 +697,7 @@ class AsyncFastSparkTTS:
             max_tokens: int = 4096,
             split: bool = False,  # 是否需要对文本切分，通常用于长文本场景
             window_size: int = 100,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
             audio_chunk_duration: float = 1.0,
             max_audio_chunk_duration: float = 8.0,
             audio_chunk_size_scale_factor: float = 2.0,
@@ -709,7 +721,7 @@ class AsyncFastSparkTTS:
         fade_in = np.linspace(0, 1, cross_fade_samples)
 
         if split:
-            segments = split_text(text, window_size)
+            segments = split_text(text, window_size, split_fn=split_fn)
         else:
             segments = [text]
 

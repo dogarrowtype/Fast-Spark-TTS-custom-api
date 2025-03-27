@@ -97,12 +97,14 @@ cd Fast-Spark-TTS
 
 ```bash
 python server.py \
---model_path Spark-TTS-0.5B \
---engine vllm \
+--model_path Spark-TTS-0.5B \  # 可修改为自己的模型地址
+--engine vllm \  # vllm、sglang、torch、llama-cpp任选一个
 --llm_device cuda \
 --tokenizer_device cuda \
 --detokenizer_device cuda \
 --wav2vec_attn_implementation sdpa \
+--llm_attn_implementation sdpa \  # 如果使用torch engine，最好开启加速
+--torch_dtype "bfloat16" \   # 不支持bfloat16的设备，只能设置为float32.这个模型float16有问题
 --max_length 32768 \
 --llm_gpu_memory_utilization 0.6 \
 --host 0.0.0.0 \
@@ -112,7 +114,12 @@ python server.py \
 3. 启动Web界面
 
 ```bash
-python frontend.py
+python frontend.py \
+--backend_url http://127.0.0.1:8000 \  # 自定义后端地址
+--length_threshold 100 \  # 长文本阈值，超过这个长度启动长文本语音合成。
+--window_size 100 \  # 长文本推理时，文本片段切分的窗口大小
+--host 0.0.0.0 \ 
+--port 8001
 ```
 
 4. 在浏览器中访问

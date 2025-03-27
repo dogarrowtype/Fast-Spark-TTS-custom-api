@@ -149,7 +149,7 @@ def clone_by_role():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="FastSparkTTS 前端")
-    parser.add_argument("--backend_url", type=str, default="http://10.10.10.174:8000",
+    parser.add_argument("--backend_url", type=str, default="http://127.0.0.1:8000",
                         help="FastSparkTTS服务端接口地址")
     parser.add_argument("--length_threshold", type=int, default=100, help="长文本阈值，超过这个长度启动长文本语音合成。")
     parser.add_argument("--window_size", type=int, default=100, help="长文本推理时，文本片段切分的窗口大小")
