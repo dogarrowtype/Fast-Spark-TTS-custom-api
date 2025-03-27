@@ -38,7 +38,7 @@ class DeTokenizer:
     def __init__(
             self,
             model_path: str,
-            device: Literal["cpu", "cuda"] | str = "cpu",
+            device: Literal["cpu", "cuda", "mps"] | str = "cpu",
             batch_size: int = 32,
             wait_timeout: float = 0.01):
         self.device = torch.device(device)

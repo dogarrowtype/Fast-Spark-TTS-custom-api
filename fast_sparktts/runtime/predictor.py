@@ -4,6 +4,7 @@
 import asyncio
 import math
 import os
+import platform
 import random
 import re
 from typing import Optional, Literal, AsyncIterator, Callable
@@ -32,9 +33,9 @@ class AsyncFastSparkTTS:
             self,
             model_path: str,
             max_length: int = 32768,
-            llm_device: Literal["cpu", "cuda", "auto"] | str = "auto",
-            tokenizer_device: Literal["cpu", "cuda", "auto"] | str = "auto",
-            detokenizer_device: Literal["cpu", "cuda", "auto"] | str = "auto",
+            llm_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
+            tokenizer_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
+            detokenizer_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
             engine: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
             wav2vec_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
             llm_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
@@ -105,7 +106,7 @@ class AsyncFastSparkTTS:
             model_path: str,
             engine: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
             max_length: int = 32768,
-            llm_device: Literal["cpu", "cuda", "auto"] | str = "auto",
+            llm_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
             llm_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
             torch_dtype: Literal['float16', "bfloat16", 'float32', 'auto'] = "auto",
             llm_gpu_memory_utilization: Optional[float] = 0.6,
@@ -116,6 +117,9 @@ class AsyncFastSparkTTS:
     ):
         llm_device = self._auto_detect_device(llm_device, is_sglang=bool(engine == "sglang"))
         llm_path = os.path.join(model_path, "LLM")
+        if llm_device == "mps" and engine in ['vllm', "sglang"]:
+            logger.error("目前仅torch支持mps，vllm和sglang请使用cuda。")
+            raise RuntimeError("目前仅torch支持mps，vllm和sglang请使用cuda。")
 
         if engine == "vllm":
             from .generator.vllm_generator import VllmGenerator
@@ -168,10 +172,12 @@ class AsyncFastSparkTTS:
                     "sglang目前不支持指定GPU ID，将默认使用第一个GPU。您可以通过设置环境变量CUDA_VISIBLE_DEVICES=0 来指定GPU。")
                 return "cuda"
             return device
-        if device in ["cpu", "cuda"] or device.startswith("cuda"):
+        if device in ["cpu", "cuda", "mps"] or device.startswith("cuda"):
             return device
         if torch.cuda.is_available():
             return "cuda"
+        elif platform.system() == "Darwin" and torch.backends.mps.is_available():
+            return "mps"
         else:
             return "cpu"
 
@@ -627,6 +633,7 @@ class AsyncFastSparkTTS:
         else:
             segments = [text]
         self.set_seed()
+
         async def generate_audio(
                 segment: str,
                 acoustic_prompt: Optional[str] = None,
