@@ -84,6 +84,7 @@ class TokenizerModel(BaseModel):
             mel_scale="slaney",
         )
 
+    @torch.no_grad()
     def forward(
             self,
             audio_features: torch.Tensor,
@@ -94,8 +95,8 @@ class TokenizerModel(BaseModel):
         semantic_tokens = self.quantizer.tokenize(z)
         global_tokens = self.speaker_encoder.tokenize(mel.transpose(1, 2))
         return {
-            "semantic_tokens": semantic_tokens,
-            "global_tokens": global_tokens
+            "semantic_tokens": semantic_tokens.detach(),
+            "global_tokens": global_tokens.detach()
         }
 
 
@@ -196,7 +197,7 @@ class Tokenizer:
         features = (
                            output.hidden_states[11] + output.hidden_states[14] + output.hidden_states[16]
                    ) / 3
-        return features
+        return features.detach()
 
     @torch.no_grad()
     def tokenize(self, audios):
@@ -213,6 +214,9 @@ class Tokenizer:
         audio_features = self.extract_features(wav_list)
 
         outputs = self.model(audio_features, audio_clip.to(self.device))
+
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()
 
         return outputs
 

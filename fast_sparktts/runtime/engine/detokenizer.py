@@ -21,6 +21,7 @@ class DeTokenizerModel(BaseModel):
         self.decoder = WaveGenerator(**config["decoder"])
         self.speaker_encoder = SpeakerEncoder(**config["speaker_encoder"])
 
+    @torch.no_grad()
     def forward(
             self,
             semantic_tokens: torch.Tensor,
@@ -31,7 +32,7 @@ class DeTokenizerModel(BaseModel):
         x = self.prenet(z_q, d_vector)
         x = x + d_vector.unsqueeze(-1)
         wav_recon = self.decoder(x)
-        return wav_recon
+        return wav_recon.detach()
 
 
 class DeTokenizer:
@@ -58,10 +59,11 @@ class DeTokenizer:
             semantic_tokens: torch.Tensor,
             global_tokens: torch.Tensor
     ) -> torch.Tensor:
-        return self.model(
+        output = self.model(
             semantic_tokens.to(self.device),
             global_tokens.to(self.device)
         )
+        return output
 
     async def batch_detokenize_async(self, requests: list[dict[str, torch.Tensor]]) -> list[dict[str, torch.Tensor]]:
         semantic_tokens, global_tokens = [], []
@@ -79,7 +81,7 @@ class DeTokenizer:
         audios = self.detokenize(
             semantic_tokens=semantic_tokens,
             global_tokens=global_tokens
-        )
+        ).detach().cpu()
         # Prepare responses
         responses = []
         for i in range(len(requests)):
