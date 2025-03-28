@@ -4,23 +4,34 @@
 # Author  : Hui Huang
 import os
 from typing import Optional, AsyncIterator
-
+from ..logger import get_logger
 from .generator import Generator
 
-GGUF_MODEL_NAME = "model.gguf"
+logger = get_logger()
 
 
 class LlamaCPPGenerator(Generator):
     def __init__(
             self,
             model_path: str,
-            gguf_model_file: Optional[str] = None,
             max_length: int = 32768,
             **kwargs
     ):
         from llama_cpp import Llama
+
+        model_files = []
+        for filename in os.listdir(model_path):
+            if filename.endswith(".gguf"):
+                model_files.append(filename)
+        if len(model_files) == 0:
+            logger.error("No gguf file found in the model directory")
+            raise ValueError("No gguf file found in the model directory")
+        else:
+            if len(model_files) > 0:
+                logger.warning(f"Multiple gguf files found in the model directory, using the first one: {model_files[0]}")
+            model_file = os.path.join(model_path, model_files[0])
         self.model = Llama(
-            os.path.join(model_path, GGUF_MODEL_NAME) if gguf_model_file is None else gguf_model_file,
+            model_file,
             n_ctx=max_length,
             **kwargs
         )

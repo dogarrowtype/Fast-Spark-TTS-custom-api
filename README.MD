@@ -40,6 +40,12 @@
 - fastapi
 - vllm 或 sglang 或 llama-cpp
 
+### 下载权重
+
+权重下载地址：[huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)、[modelscope](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)
+
+GGUF量化权重下载：[SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)
+
 ### 安装依赖
 
 ```bash
@@ -61,7 +67,10 @@ pip install -r requirements.txt
     ```bash
     pip install llama-cpp-python
     ```
-  将LLM权重转为gguf格式，然后文件名保存为`model.gguf`，放至`LLM`路径。可以参考下面方式转换权重，如需量化可以自行配置参数。
+
+  可以从 [SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)下载已经转好的gguf权重（本地机器推荐使用
+  `Q4_K_M`版本），将其下载放至`LLM`路径，或者使用`convert_hf_to_gguf.py`脚本转换权重。
+
     ```bash
     git clone https://github.com/ggml-org/llama.cpp.git
     
@@ -77,10 +86,6 @@ pip install -r requirements.txt
     ```
 
   具体参考链接：https://github.com/sgl-project/sglang
-
-### 下载权重
-
-权重下载地址：[huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)、[modelscope](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)
 
 ### 启动
 
@@ -143,6 +148,7 @@ http://localhost:8001
 ```bash
 pip install gradio
 ```
+
 启动`gradio`：
 
 ```bash
