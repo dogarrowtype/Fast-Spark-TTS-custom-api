@@ -31,6 +31,95 @@
   </div>
 </div>
 
+## **Demos**
+
+这里是一些长文本音频合成示例：
+
+---
+<table>
+<tr>
+<td align="center">
+    
+**随机男声**
+</td>
+<td align="center">
+    
+**随机女声**
+</td>
+</tr>
+
+<tr>
+<td align="center">
+
+[随机男声](source/audios/male-random-long.wav)
+
+</td>
+<td align="center">
+    
+[随机女声](source/audios/female-random-long.wav)
+</td>
+</tr>
+</table>
+
+---
+
+<table>
+<tr>
+<td align="center">
+    
+**哪吒**
+</td>
+<td align="center">
+    
+**李靖**
+</td>
+</tr>
+
+<tr>
+<td align="center">
+
+[哪吒](source/audios/nezha-long.wav)
+
+</td>
+<td align="center">
+    
+[李靖](source/audios/lijing-long.wav)
+
+</td>
+</tr>
+</table>
+
+---
+
+
+<table>
+<tr>
+<td align="center">
+    
+**赞助商**
+</td>
+<td align="center">
+    
+**殷夫人**
+</td>
+</tr>
+
+<tr>
+<td align="center">
+
+[赞助商](source/audios/zanzhushang-long.wav)
+
+</td>
+<td align="center">
+    
+[殷夫人](source/audios/yinfuren-long.wav)
+
+</td>
+</tr>
+</table>
+
+---
+
 ## 🛠️ 快速开始
 
 ### 环境要求
