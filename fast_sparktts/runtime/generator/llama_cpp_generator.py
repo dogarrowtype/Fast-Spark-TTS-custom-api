@@ -27,7 +27,7 @@ class LlamaCPPGenerator(Generator):
             logger.error("No gguf file found in the model directory")
             raise ValueError("No gguf file found in the model directory")
         else:
-            if len(model_files) > 0:
+            if len(model_files) > 1:
                 logger.warning(f"Multiple gguf files found in the model directory, using the first one: {model_files[0]}")
             model_file = os.path.join(model_path, model_files[0])
         self.model = Llama(
