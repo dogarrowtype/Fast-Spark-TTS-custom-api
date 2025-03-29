@@ -305,7 +305,8 @@ class AsyncSparkEngine(BaseEngine):
         audio = await self.audio_detokenizer.detokenize_async(
             request=detokenizer_req
         )
-        audio = audio["audio"][0].cpu().numpy().astype(np.float32)
+        audio = audio["audio"][0].detach().cpu().numpy().astype(np.float32)
+        torch.cuda.empty_cache()
         return audio
 
     async def _clone_voice_by_tokens(
