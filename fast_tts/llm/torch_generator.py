@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
-# Time      :2025/3/19 12:30
+# Time      :2025/3/29 10:57
 # Author    :Hui Huang
 from threading import Thread
-from typing import Optional, Literal, AsyncIterator
+from typing import Optional, Literal, AsyncIterator, List
 
 import torch
 
-from .generator import Generator
-from transformers import AutoModelForCausalLM, GenerationConfig, TextIteratorStreamer, StoppingCriteria, \
-    StoppingCriteriaList
+from .base_llm import BaseLLM
+from transformers import (
+    AutoModelForCausalLM,
+    GenerationConfig,
+    TextIteratorStreamer,
+    StoppingCriteria,
+    StoppingCriteriaList)
 import uuid
+
+__all__ = ["TorchGenerator"]
 
 
 class StopOnTokens(StoppingCriteria):
@@ -34,7 +40,7 @@ class StopOnTokens(StoppingCriteria):
         return False
 
 
-class TorchGenerator(Generator):
+class TorchGenerator(BaseLLM):
     def __init__(self,
                  model_path: str,
                  max_length: int = 32768,
@@ -42,6 +48,8 @@ class TorchGenerator(Generator):
                  attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
                  torch_dtype: Literal['float16', "bfloat16", 'float32', 'auto'] = "auto",
                  cache_implementation: Optional[str] = None,
+                 stop_tokens: Optional[list[str]] = None,
+                 stop_token_ids: Optional[List[int]] = None,
                  **kwargs):
         self.device = torch.device(device)
         self.cache_implementation = cache_implementation
@@ -58,13 +66,15 @@ class TorchGenerator(Generator):
         super(TorchGenerator, self).__init__(
             tokenizer=model_path,
             max_length=max_length,
+            stop_tokens=stop_tokens,
+            stop_token_ids=stop_token_ids,
         )
 
     async def async_generate(
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs
@@ -110,7 +120,7 @@ class TorchGenerator(Generator):
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> AsyncIterator[str]:

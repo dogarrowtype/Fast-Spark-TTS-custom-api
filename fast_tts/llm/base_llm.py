@@ -1,24 +1,35 @@
 # -*- coding: utf-8 -*-
-# Project : Fast-Spark-TTS
-# Time    : 2025/3/13 10:57
-# Author  : Hui Huang
-from typing import List, AsyncIterator
+# Time      :2025/3/29 10:45
+# Author    :Hui Huang
+from typing import List, AsyncIterator, Optional
 from transformers import AutoTokenizer
 import uuid
 
 
-class Generator:
+class BaseLLM:
 
-    def __init__(self, tokenizer, max_length: int):
+    def __init__(
+            self,
+            tokenizer,
+            max_length: int,
+            stop_tokens: Optional[list[str]] = None,
+            stop_token_ids: Optional[List[int]] = None
+    ):
         self.max_length = max_length
         if isinstance(tokenizer, str):
             self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
         else:
             self.tokenizer = tokenizer
-        stop_tokens = ["<|im_end|>", "<|end_semantic_token|>"]
-        stop_token_ids = self.tokenizer.convert_tokens_to_ids(stop_tokens)
+
+        if stop_token_ids is None:
+            stop_token_ids = []
         if self.tokenizer.eos_token_id is not None:
             stop_token_ids = stop_token_ids + [self.tokenizer.eos_token_id]
+        if stop_tokens is None:
+            stop_tokens = []
+        if len(stop_tokens) > 0:
+            stop_token_ids = stop_token_ids + self.tokenizer.convert_tokens_to_ids(stop_tokens)
+
         self.stop_token_ids = stop_token_ids
         self.stop_tokens = self.tokenizer.convert_ids_to_tokens(self.stop_token_ids)
 
@@ -40,7 +51,7 @@ class Generator:
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs
@@ -51,8 +62,8 @@ class Generator:
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> AsyncIterator[str]:
-        yield NotImplementedError
+        ...

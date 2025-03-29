@@ -17,8 +17,8 @@ import uvicorn
 import soundfile as sf
 from starlette.middleware.cors import CORSMiddleware
 
-from fast_sparktts import (
-    AsyncFastSparkTTS,
+from fast_tts import (
+    AsyncSparkEngine,
     get_logger,
     setup_logging
 )
@@ -34,12 +34,12 @@ class TTSRequest(BaseModel):
     gender: Literal["female", "male"] = "female"
     pitch: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
     speed: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
-    temperature: float = 0.8
+    temperature: float = 0.9
     top_k: int = 50
     top_p: float = 0.95
     max_tokens: int = 4096
-    split: bool = False
-    window_size: int = 100
+    length_threshold: int = 50
+    window_size: int = 50
     stream: bool = False
     audio_chunk_duration: float = 1.0
     max_audio_chunk_duration: float = 8.0
@@ -53,12 +53,12 @@ class CloneRequest(BaseModel):
     # reference_audio 字段既可以是一个 URL，也可以是 base64 编码的音频数据
     reference_audio: str
     reference_text: Optional[str] = None
-    temperature: float = 0.8
+    temperature: float = 0.9
     top_k: int = 50
     top_p: float = 0.95
     max_tokens: int = 4096
-    split: bool = False
-    window_size: int = 100
+    length_threshold: int = 50
+    window_size: int = 50
     stream: bool = False
     audio_chunk_duration: float = 1.0
     max_audio_chunk_duration: float = 8.0
@@ -70,12 +70,12 @@ class CloneRequest(BaseModel):
 class SpeakRequest(BaseModel):
     name: str
     text: str
-    temperature: float = 0.8
+    temperature: float = 0.9
     top_k: int = 50
     top_p: float = 0.95
     max_tokens: int = 4096
-    split: bool = False
-    window_size: int = 100
+    length_threshold: int = 50
+    window_size: int = 50
     stream: bool = False
     audio_chunk_duration: float = 1.0
     max_audio_chunk_duration: float = 8.0
@@ -83,7 +83,7 @@ class SpeakRequest(BaseModel):
     audio_chunk_overlap_duration: float = 0.1
 
 
-async def load_roles(async_engine: AsyncFastSparkTTS, role_dir: Optional[str] = None):
+async def load_roles(async_engine: AsyncSparkEngine, role_dir: Optional[str] = None):
     # 加载已有的角色音频
     if role_dir is not None and os.path.exists(role_dir):
         logger.info(f"加载角色库：{role_dir}")
@@ -115,7 +115,7 @@ async def load_roles(async_engine: AsyncFastSparkTTS, role_dir: Optional[str] = 
         logger.warning("当前角色目录不存在，将无法使用角色克隆功能！")
 
 
-async def warmup_engine(async_engine: AsyncFastSparkTTS):
+async def warmup_engine(async_engine: AsyncSparkEngine):
     logger.info("Warming up...")
     await async_engine.generate_voice_async(
         text="测试音频",
@@ -134,7 +134,7 @@ async def process_audio_buffer(audio: np.ndarray):
 # TTS 合成接口：接收 JSON 请求，返回合成语音（wav 格式）
 @router.post("/generate_voice")
 async def generate_voice(req: TTSRequest, raw_request: Request):
-    engine: AsyncFastSparkTTS = raw_request.app.state.engine
+    engine: AsyncSparkEngine = raw_request.app.state.engine
     if req.stream:
         async def generate_audio_stream():
             async for chunk in engine.generate_voice_stream_async(
@@ -146,7 +146,7 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
                     top_p=req.top_p,
                     top_k=req.top_k,
                     max_tokens=req.max_tokens,
-                    split=req.split,
+                    length_threshold=req.length_threshold,
                     window_size=req.window_size,
                     audio_chunk_duration=req.audio_chunk_duration,
                     max_audio_chunk_duration=req.max_audio_chunk_duration,
@@ -168,7 +168,7 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
                 top_p=req.top_p,
                 top_k=req.top_k,
                 max_tokens=req.max_tokens,
-                split=req.split,
+                length_threshold=req.length_threshold,
                 window_size=req.window_size,
             )
         except Exception as e:
@@ -192,7 +192,7 @@ async def get_audio_bytes_from_url(url: str) -> bytes:
 async def clone_voice(
         req: CloneRequest, raw_request: Request
 ):
-    engine: AsyncFastSparkTTS = raw_request.app.state.engine
+    engine: AsyncSparkEngine = raw_request.app.state.engine
 
     # 根据 reference_audio 内容判断读取方式
     if req.reference_audio.startswith("http://") or req.reference_audio.startswith("https://"):
@@ -220,7 +220,7 @@ async def clone_voice(
                     top_p=req.top_p,
                     top_k=req.top_k,
                     max_tokens=req.max_tokens,
-                    split=req.split,
+                    length_threshold=req.length_threshold,
                     window_size=req.window_size,
                     audio_chunk_duration=req.audio_chunk_duration,
                     max_audio_chunk_duration=req.max_audio_chunk_duration,
@@ -241,7 +241,7 @@ async def clone_voice(
                 top_p=req.top_p,
                 top_k=req.top_k,
                 max_tokens=req.max_tokens,
-                split=req.split,
+                length_threshold=req.length_threshold,
                 window_size=req.window_size,
             )
         except Exception as e:
@@ -264,7 +264,7 @@ async def audio_roles(raw_request: Request):
 
 @router.post("/speak")
 async def speak(req: SpeakRequest, raw_request: Request):
-    engine: AsyncFastSparkTTS = raw_request.app.state.engine
+    engine: AsyncSparkEngine = raw_request.app.state.engine
     if req.name not in engine.speakers:
         err_msg = f"{req.name} 不在已有的角色列表中。"
         logger.warning(err_msg)
@@ -279,7 +279,7 @@ async def speak(req: SpeakRequest, raw_request: Request):
                     top_p=req.top_p,
                     top_k=req.top_k,
                     max_tokens=req.max_tokens,
-                    split=req.split,
+                    length_threshold=req.length_threshold,
                     window_size=req.window_size,
                     audio_chunk_duration=req.audio_chunk_duration,
                     max_audio_chunk_duration=req.max_audio_chunk_duration,
@@ -299,7 +299,7 @@ async def speak(req: SpeakRequest, raw_request: Request):
                 top_p=req.top_p,
                 top_k=req.top_k,
                 max_tokens=req.max_tokens,
-                split=req.split,
+                length_threshold=req.length_threshold,
                 window_size=req.window_size,
             )
         except Exception as e:
@@ -314,13 +314,13 @@ def build_app(args) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # 使用解析到的参数初始化全局 TTS 引擎
-        engine = AsyncFastSparkTTS(
+        engine = AsyncSparkEngine(
             model_path=args.model_path,
             max_length=args.max_length,
             llm_device=args.llm_device,
             tokenizer_device=args.tokenizer_device,
             detokenizer_device=args.detokenizer_device,
-            engine=args.engine,
+            backend=args.backend,
             wav2vec_attn_implementation=args.wav2vec_attn_implementation,
             llm_attn_implementation=args.llm_attn_implementation,
             llm_gpu_memory_utilization=args.llm_gpu_memory_utilization,
@@ -367,7 +367,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="FastSparkTTS 后端")
     parser.add_argument("--model_path", type=str, required=True,
                         help="模型路径")
-    parser.add_argument("--engine", type=str, required=True,
+    parser.add_argument("--backend", type=str, required=True,
                         choices=["llama-cpp", "vllm", "sglang", "torch"],
                         help="引擎类型，如 llama-cpp、vllm、sglang 或 torch")
     parser.add_argument("--llm_device", type=str, default="auto",

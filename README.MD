@@ -103,7 +103,7 @@ cd Fast-Spark-TTS
 ```bash
 python server.py \
 --model_path Spark-TTS-0.5B \  # 可修改为自己的模型地址
---engine vllm \  # vllm、sglang、torch、llama-cpp任选一个
+--backend vllm \  # vllm、sglang、torch、llama-cpp任选一个
 --llm_device cuda \
 --tokenizer_device cuda \
 --detokenizer_device cuda \
@@ -123,8 +123,6 @@ flask前端启动命令：
 ```bash
 python frontend.py \
 --backend_url http://127.0.0.1:8000 \  # 自定义后端地址
---length_threshold 100 \  # 长文本阈值，超过这个长度启动长文本语音合成。
---window_size 100 \  # 长文本推理时，文本片段切分的窗口大小
 --host 0.0.0.0 \ 
 --port 8001
 ```
@@ -154,8 +152,6 @@ pip install gradio
 ```bash
 python frontend.py \
 --backend_url http://127.0.0.1:8000 \  # 自定义后端地址
---length_threshold 100 \  # 长文本阈值，超过这个长度启动长文本语音合成。
---window_size 100 \  # 长文本推理时，文本片段切分的窗口大小
 --host 0.0.0.0 \ 
 --port 7860
 ```

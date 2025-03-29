@@ -16,7 +16,7 @@ def generate_voice():
         "gender": "male",
         "pitch": "moderate",
         "speed": "moderate",
-        "temperature": 0.6,
+        "temperature": 0.9,
         "top_p": 0.95,
         "top_k": 50,
         "max_tokens": 2048
@@ -48,7 +48,7 @@ def clone_with_base64():
         "text": text,
         "reference_text": None,
         "reference_audio": audio_base64,
-        "temperature": 0.6,
+        "temperature": 0.9,
         "top_p": 0.95,
         "top_k": 50,
         "max_tokens": 2048
@@ -93,12 +93,11 @@ def clone_voice_stream():
         "text": long_text,
         "reference_text": None,
         "reference_audio": audio_base64,
-        "temperature": 0.6,
+        "temperature": 0.9,
         "top_p": 0.95,
         "top_k": 50,
         "max_tokens": 2048,
-        "stream": True,
-        "split": True,  # 使用长文本需要设置为true
+        "stream": True
     }
     response = requests.post(f"{BASE_URL}/clone_voice", json=payload, stream=True)
 

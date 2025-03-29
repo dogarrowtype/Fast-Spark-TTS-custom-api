@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
-# Time      :2025/3/23 20:00
+# Time      :2025/3/29 10:34
 # Author    :Hui Huang
 import os
 from typing import Literal
+
 import torch
-from .tokenizer import BaseModel
-from .batch_processor import AsyncBatchEngine
+from ..base_model import SparkBaseModel
+from ..batch_processor import AsyncBatchEngine
 from ...modules.encoder_decoder.feat_decoder import Decoder
 from ...modules.encoder_decoder.wave_generator import WaveGenerator
 from ...modules.speaker.speaker_encoder import SpeakerEncoder
 from ...modules.vq.factorized_vector_quantize import FactorizedVectorQuantize
 
+__all__ = ["SparkDeTokenizer"]
 
-class DeTokenizerModel(BaseModel):
+
+class SparkDeTokenizerModel(SparkBaseModel):
     def __init__(self, config):
         super().__init__()
 
@@ -35,7 +38,7 @@ class DeTokenizerModel(BaseModel):
         return wav_recon.detach()
 
 
-class DeTokenizer:
+class SparkDeTokenizer:
     def __init__(
             self,
             model_path: str,
@@ -43,8 +46,8 @@ class DeTokenizer:
             batch_size: int = 32,
             wait_timeout: float = 0.01):
         self.device = torch.device(device)
-        self.model = DeTokenizerModel.from_pretrained(
-            os.path.join(model_path, "BiCodec")
+        self.model = SparkDeTokenizerModel.from_pretrained(
+            model_path
         ).to(self.device)
 
         self._batch_processor = AsyncBatchEngine(

@@ -2,10 +2,9 @@
 # Project : Fast-Spark-TTS
 # Time    : 2025/3/13 12:32
 # Author  : Hui Huang
+import asyncio
 import numpy as np
-
-from fast_sparktts import AsyncFastSparkTTS
-import soundfile as sf
+from fast_tts import AsyncSparkEngine
 
 long_text = ("今日是二零二五年三月十九日，国内外热点事件聚焦于国际局势、经济政策及社会民生领域。"
              "国际局势中，某国领导人围绕地区冲突停火问题展开对话，双方同意停止攻击对方能源设施并推动谈判，但对全面停火提议的落实仍存分歧。"
@@ -23,50 +22,50 @@ long_text = ("今日是二零二五年三月十九日，国内外热点事件聚
 
 def prepare_engine():
     # vllm
-    # engine = AsyncFastSparkTTS(
+    # engine = AsyncSparkEngine(
     #     model_path="Spark-TTS-0.5B",
     #     max_length=32768,
     #     llm_device="cuda:0",
     #     tokenizer_device="cuda:0",
     #     detokenizer_device="cuda:0",
-    #     engine="vllm",
+    #     backend="vllm",
     #     wav2vec_attn_implementation="sdpa",  # 使用flash attn加速wav2vec
     #     llm_gpu_memory_utilization=0.6,
     #     seed=0
     # )
 
     # sglang
-    # engine = AsyncFastSparkTTS(
+    # engine = AsyncSparkEngine(
     #     model_path="Spark-TTS-0.5B",
     #     max_length=32768,
     #     llm_device="cuda",  # sglang没办法指定gpu id，需要使用CUDA_VISIBLE_DEVICES=0设置。
     #     tokenizer_device="cuda:0",
     #     detokenizer_device="cuda:0",
-    #     engine="sglang",
+    #     backend="sglang",
     #     wav2vec_attn_implementation="sdpa",  # 使用flash attn加速wav2vec
     #     llm_gpu_memory_utilization=0.6,
     #     seed=0
     # )
 
     # llama-cpp
-    # engine = AsyncFastSparkTTS(
+    # engine = AsyncSparkEngine(
     #     model_path="Spark-TTS-0.5B",
     #     max_length=32768,
     #     llm_device="cpu",
     #     tokenizer_device="cpu",
     #     detokenizer_device="cpu",
-    #     engine="llama-cpp",
+    #     backend="llama-cpp",
     #     wav2vec_attn_implementation="eager"
     # )
 
     # torch
-    engine = AsyncFastSparkTTS(
+    engine = AsyncSparkEngine(
         model_path="Spark-TTS-0.5B",
         max_length=32768,
         llm_device="cuda",
         tokenizer_device="cuda",
         detokenizer_device="cuda",
-        engine="torch",
+        backend="torch",
         wav2vec_attn_implementation="sdpa",
         llm_attn_implementation="sdpa",
         torch_dtype="bfloat16",
@@ -75,29 +74,14 @@ def prepare_engine():
     return engine
 
 
-def generate_voice(engine: AsyncFastSparkTTS):
-    """
-        语音合成示例
-        """
-    wav = engine.generate_voice(
-        "我是无敌的小可爱。",
-        gender="female",
-        temperature=0.8,
-        top_p=0.95,
-        top_k=50,
-        max_tokens=512
-    )
-    return wav
-
-
-async def async_generate_voice(engine: AsyncFastSparkTTS):
+async def generate_voice(engine: AsyncSparkEngine):
     """
     异步语音合成示例
     """
     wav = await engine.generate_voice_async(
         "我是无敌的小可爱。",
         gender="female",
-        temperature=0.8,
+        temperature=0.9,
         top_p=0.95,
         top_k=50,
         max_tokens=512
@@ -105,25 +89,7 @@ async def async_generate_voice(engine: AsyncFastSparkTTS):
     return wav
 
 
-def clone_voice(engine: AsyncFastSparkTTS):
-    """
-    语音克隆示例
-    """
-    text = "身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。"
-
-    wav = engine.clone_voice(
-        text=text,
-        reference_audio="data/roles/赞助商/reference_audio.wav",
-        reference_text=None,
-        temperature=0.8,
-        top_p=0.95,
-        top_k=50,
-        max_tokens=512
-    )
-    return wav
-
-
-async def async_clone_voice(engine: AsyncFastSparkTTS):
+async def clone_voice(engine: AsyncSparkEngine):
     """
         异步语音克隆示例
         """
@@ -132,7 +98,7 @@ async def async_clone_voice(engine: AsyncFastSparkTTS):
     wav = await engine.clone_voice_async(
         text=text,
         reference_audio="data/roles/赞助商/reference_audio.wav",
-        temperature=0.8,
+        temperature=0.9,
         top_p=0.95,
         top_k=50,
         max_tokens=512
@@ -140,53 +106,33 @@ async def async_clone_voice(engine: AsyncFastSparkTTS):
     return wav
 
 
-async def async_generate_long_voice(engine: AsyncFastSparkTTS):
+async def generate_long_voice(engine: AsyncSparkEngine):
     """
         异步长文本语音合成示例，split表示开启句子切分，window_size为句子窗口大小
         """
     wav = await engine.generate_voice_async(
         text=long_text,
         split=True,
-        window_size=100
+        length_threshold=50,
+        window_size=50
     )
     return wav
 
 
-def generate_long_voice(engine: AsyncFastSparkTTS):
-    """
-            长文本语音合成示例，split表示开启句子切分，window_size为句子窗口大小
-            """
-    wav = engine.generate_voice(text=long_text, split=True, window_size=100)
-    return wav
-
-
-async def async_clone_long_voice(engine: AsyncFastSparkTTS):
+async def clone_long_voice(engine: AsyncSparkEngine):
     """
     异步长文本语音克隆示例
     """
     wav = await engine.clone_voice_async(
         text=long_text,
         reference_audio="data/roles/赞助商/reference_audio.wav",
-        split=True,
-        window_size=100,
+        length_threshold=50,
+        window_size=50,
     )
     return wav
 
 
-def clone_long_voice(engine: AsyncFastSparkTTS):
-    """
-    异步长文本语音克隆示例
-    """
-    wav = engine.clone_voice(
-        text=long_text,
-        reference_audio="data/roles/赞助商/reference_audio.wav",
-        split=True,
-        window_size=100,
-    )
-    return wav
-
-
-async def async_generate_voice_stream(engine: AsyncFastSparkTTS):
+async def generate_voice_stream(engine: AsyncSparkEngine):
     """
     流式音频合成示例
     """
@@ -194,7 +140,8 @@ async def async_generate_voice_stream(engine: AsyncFastSparkTTS):
     async for chunk in engine.generate_voice_stream_async(
             text=long_text,
             split=True,
-            window_size=100
+            length_threshold=50,
+            window_size=50
     ):
         audios.append(chunk)
 
@@ -202,7 +149,7 @@ async def async_generate_voice_stream(engine: AsyncFastSparkTTS):
     return audio
 
 
-async def async_clone_voice_stream(engine: AsyncFastSparkTTS):
+async def clone_voice_stream(engine: AsyncSparkEngine):
     """
     异步流式语音克隆示例
     """
@@ -211,36 +158,43 @@ async def async_clone_voice_stream(engine: AsyncFastSparkTTS):
             text=long_text,
             reference_audio="data/roles/赞助商/reference_audio.wav",
             split=True,
-            window_size=100
+            length_threshold=50,
+            window_size=50
     ):
         audios.append(chunk)
     audio = np.concatenate(audios)
     return audio
 
 
-def main():
-    engine = prepare_engine()
-    # audio = generate_voice(engine)
-    # audio = generate_long_voice(engine)
-    audio = clone_voice(engine)
-    sf.write("result.wav", audio, 16000, "PCM_16")
-
-
 async def run():
     engine = prepare_engine()
-    audio = await async_generate_voice(engine)
-    # audio = await async_clone_voice(engine)
-    # audio = await async_generate_long_voice(engine)
-    sf.write("result.wav", audio, 16000, "PCM_16")
+    audio = await generate_voice(engine)
+    # audio = await clone_voice(engine)
+    # audio = await generate_long_voice(engine)
+    engine.write_audio(audio, "result.wav")
 
 
-async def repeat_run():
-    engine = prepare_engine()
-    for i in range(5):
-        audio = await async_generate_voice(engine)
-        sf.write(f"result_{i}", audio, 16000, "PCM_16")
+async def run_orpheus():
+    """
+    Orpheus目前仅支持英文
+    """
+    from fast_tts import AsyncOrpheusEngine
+
+    engine = AsyncOrpheusEngine(
+        model_path="orpheus-3b-0.1-ft",
+        snac_path="snac_24khz",
+        max_length=8192,
+        llm_device="cuda",
+        detokenizer_device="cuda",
+        backend="vllm",
+        torch_dtype='bfloat16'
+    )
+    wav = await engine.speak_async(
+        name='tara',
+        text="Hey there guys. It's, <giggle> Tara here, and let me introduce you to Zac.. who seems to asleep.",
+    )
+    engine.write_audio(wav, "result.wav")
 
 
 if __name__ == '__main__':
-    main()
-    # asyncio.run(run())
+    asyncio.run(run())

@@ -6,7 +6,7 @@ from typing import Literal
 
 import torch
 
-from fast_sparktts import AsyncFastSparkTTS
+from fast_tts import AsyncSparkEngine
 import asyncio
 import time
 
@@ -29,7 +29,7 @@ generate_config = dict(
     gender="female",
     pitch="moderate",
     speed="moderate",
-    temperature=0.8,
+    temperature=0.9,
     top_k=50,
     top_p=0.95,
     max_tokens=4096,
@@ -38,7 +38,7 @@ generate_config = dict(
 
 async def run(
         model_path: str,
-        engine: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
+        backend: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
         device: Literal["cpu", "cuda", "auto"] | str = "auto"
 ):
     model_kwargs = {
@@ -47,18 +47,18 @@ async def run(
         "llm_device": device,
         "tokenizer_device": device,
         "detokenizer_device": device,
-        "engine": engine
+        "backend": backend
     }
 
     if torch.cuda.is_available():
         model_kwargs["wav2vec_attn_implementation"] = "sdpa"
         model_kwargs["llm_gpu_memory_utilization"] = 0.6
 
-    if engine == "torch":
+    if backend == "torch":
         model_kwargs["torch_dtype"] = "bfloat16"
         model_kwargs["llm_attn_implementation"] = 'sdpa'
 
-    model = AsyncFastSparkTTS(**model_kwargs)
+    model = AsyncSparkEngine(**model_kwargs)
 
     # warmup
     await model.generate_voice_async(text="你好。", max_tokens=64)
@@ -69,7 +69,8 @@ async def run(
 
     end_time = time.perf_counter()
 
-    long_audio = await model.generate_voice_async(text=long_text, **generate_config, split=True, window_size=100)
+    long_audio = await model.generate_voice_async(
+        text=long_text, **generate_config, length_threshold=50, window_size=50)
 
     end_time2 = time.perf_counter()
 
@@ -83,4 +84,4 @@ async def run(
 
 
 if __name__ == '__main__':
-    asyncio.run(run(engine="sglang", model_path="Spark-TTS-0.5B", device="cuda"))
+    asyncio.run(run(backend="sglang", model_path="Spark-TTS-0.5B", device="cuda"))

@@ -104,7 +104,7 @@ links: [huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B), [modelsc
    ```bash
    python server.py \
    --model_path Spark-TTS-0.5B \
-   --engine vllm \
+   --backend vllm \
    --llm_device cuda \
    --tokenizer_device cuda \
    --detokenizer_device cuda \
@@ -118,7 +118,10 @@ links: [huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B), [modelsc
 3. **Start the Web Interface**
 
    ```bash
-   python frontend.py
+   python frontend.py \
+    --backend_url http://127.0.0.1:8000 \ 
+    --host 0.0.0.0 \ 
+    --port 7860
    ```
 
 4. **Access via your browser**

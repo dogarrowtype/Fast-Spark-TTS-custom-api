@@ -1,18 +1,22 @@
 # -*- coding: utf-8 -*-
-# Time      :2025/3/13 20:31
+# Time      :2025/3/29 10:54
 # Author    :Hui Huang
-from typing import AsyncIterator
+from typing import Optional, AsyncIterator
 
-from .generator import Generator
+from .base_llm import BaseLLM
+
+__all__ = ["VllmGenerator"]
 
 
-class VllmGenerator(Generator):
+class VllmGenerator(BaseLLM):
     def __init__(
             self,
             model_path: str,
             max_length: int = 32768,
             gpu_memory_utilization: float = 0.6,
             device: str = "cuda",
+            stop_tokens: Optional[list[str]] = None,
+            stop_token_ids: Optional[list[int]] = None,
             **kwargs):
         from vllm import AsyncEngineArgs, AsyncLLMEngine
 
@@ -32,13 +36,15 @@ class VllmGenerator(Generator):
         super(VllmGenerator, self).__init__(
             tokenizer=model_path,
             max_length=max_length,
+            stop_tokens=stop_tokens,
+            stop_token_ids=stop_token_ids,
         )
 
     async def _get_vllm_generator(
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs):
@@ -64,7 +70,7 @@ class VllmGenerator(Generator):
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs
@@ -91,7 +97,7 @@ class VllmGenerator(Generator):
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> AsyncIterator[str]:

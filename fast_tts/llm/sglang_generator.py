@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
-# Time      :2025/3/13 21:22
+# Time      :2025/3/29 10:57
 # Author    :Hui Huang
 from typing import Optional, AsyncIterator
 
 from sglang.srt.entrypoints.engine import Engine
 from sglang.srt.server_args import PortArgs, ServerArgs
 from sglang.srt.managers.io_struct import GenerateReqInput
-from .generator import Generator
+
+from .base_llm import BaseLLM
+
+__all__ = ["SglangGenerator"]
 
 
-class SglangGenerator(Generator):
+class SglangGenerator(BaseLLM):
     def __init__(self,
                  model_path: str,
                  max_length: int = 32768,
@@ -40,7 +43,7 @@ class SglangGenerator(Generator):
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs
@@ -78,7 +81,7 @@ class SglangGenerator(Generator):
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> AsyncIterator[str]:

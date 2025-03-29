@@ -1,69 +1,28 @@
 # -*- coding: utf-8 -*-
-# Time      :2025/3/23 19:06
+# Time      :2025/3/29 10:30
 # Author    :Hui Huang
-import os.path
+import os
 from typing import Literal, Optional
 
-from omegaconf import DictConfig, OmegaConf
-from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2Model
-
-from .batch_processor import AsyncBatchEngine
+import soxr
 import torch
-import torch.nn as nn
 import torchaudio.transforms as TT
+from transformers import Wav2Vec2Model, Wav2Vec2FeatureExtractor
 import numpy as np
 import soundfile as sf
-from safetensors.torch import load_file
-import soxr
-from ..logger import get_logger
+from ..base_model import SparkBaseModel
+from ..batch_processor import AsyncBatchEngine
 from ...modules.encoder_decoder.feat_encoder import Encoder
 from ...modules.speaker.speaker_encoder import SpeakerEncoder
 from ...modules.vq.factorized_vector_quantize import FactorizedVectorQuantize
+from ...logger import get_logger
 
 logger = get_logger()
 
-
-def load_config(config_path: str) -> DictConfig:
-    """Loads a configuration file and optionally merges it with a base configuration.
-
-    Args:
-    config_path (Path): Path to the configuration file.
-    """
-    # Load the initial configuration from the given path
-    config = OmegaConf.load(config_path)
-
-    # Check if there is a base configuration specified and merge if necessary
-    if config.get("base_config", None) is not None:
-        base_config = OmegaConf.load(config["base_config"])
-        config = OmegaConf.merge(base_config, config)
-
-    return config
+__all__ = ["SparkTokenizer"]
 
 
-class BaseModel(nn.Module):
-    @classmethod
-    def from_pretrained(cls, model_path: str):
-        config = load_config(os.path.join(model_path, "config.yaml"))['audio_tokenizer']
-        model = cls(config)
-        state_dict = load_file(os.path.join(model_path, "model.safetensors"))
-        model.load_state_dict(state_dict, strict=False)
-        model.eval()
-        model.remove_weight_norm()
-        return model
-
-    def remove_weight_norm(self):
-        """Removes weight normalization from all layers."""
-
-        def _remove_weight_norm(m):
-            try:
-                torch.nn.utils.remove_weight_norm(m)
-            except ValueError:
-                pass  # The module didn't have weight norm
-
-        self.apply(_remove_weight_norm)
-
-
-class TokenizerModel(BaseModel):
+class SparkTokenizerModel(SparkBaseModel):
     def __init__(self, config):
         super().__init__()
 
@@ -100,7 +59,7 @@ class TokenizerModel(BaseModel):
         }
 
 
-class Tokenizer:
+class SparkTokenizer:
     def __init__(
             self,
             model_path: str,
@@ -119,8 +78,8 @@ class Tokenizer:
         self.wav2vec2.to(self.device)
         self.wav2vec2.eval()
 
-        self.model = TokenizerModel.from_pretrained(
-            os.path.join(model_path, "BiCodec")
+        self.model = SparkTokenizerModel.from_pretrained(
+            model_path
         ).to(self.device)
 
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(

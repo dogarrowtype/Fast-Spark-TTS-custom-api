@@ -8,17 +8,7 @@ import gradio as gr
 import httpx
 import numpy as np
 
-from fast_sparktts.runtime.prompt import contains_chinese
-
 stream_mode_list = [('否', False), ('是', True)]
-
-
-def should_split(text: str) -> bool:
-    if contains_chinese(text):
-        length = len(text)
-    else:
-        length = len(text.split(" "))
-    return length > args.length_threshold
 
 
 def encode_bs64(audio_path):
@@ -68,8 +58,6 @@ def generate_voice(text, gender, pitch, speed, stream):
         "gender": gender,
         "pitch": num2attr[pitch],
         "speed": num2attr[speed],
-        "split": should_split(text),
-        "window_size": args.window_size,
         "stream": stream,
     }
     # 如果想取消流式播放，修改如下
@@ -95,8 +83,6 @@ def clone_voice(text, audio_upload, audio_record, stream):
         "text": text,
         "reference_text": None,
         "reference_audio": encode_bs64(reference_audio),
-        "split": should_split(text),
-        "window_size": args.window_size,
         "stream": stream,
     }
     # 如果想取消流式播放，修改如下
@@ -200,8 +186,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Gradio Web UI")
     parser.add_argument("--backend_url", type=str, default="http://127.0.0.1:8000",
                         help="FastSparkTTS服务端接口地址")
-    parser.add_argument("--length_threshold", type=int, default=100, help="长文本阈值，超过这个长度启动长文本语音合成。")
-    parser.add_argument("--window_size", type=int, default=100, help="长文本推理时，文本片段切分的窗口大小")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="前端地址")
     parser.add_argument("--port", type=int, default=7860, help="前端端口")
     parser.add_argument("--api_key", type=str, default=None, help="后端接口访问的api key")

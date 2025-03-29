@@ -1,20 +1,23 @@
 # -*- coding: utf-8 -*-
-# Project : Fast-Spark-TTS
-# Time    : 2025/3/13 10:51
-# Author  : Hui Huang
+# Time      :2025/3/29 10:52
+# Author    :Hui Huang
 import os
-from typing import Optional, AsyncIterator
+from typing import AsyncIterator, Optional, List
 from ..logger import get_logger
-from .generator import Generator
+from .base_llm import BaseLLM
 
 logger = get_logger()
 
+__all__ = ["LlamaCppGenerator"]
 
-class LlamaCPPGenerator(Generator):
+
+class LlamaCppGenerator(BaseLLM):
     def __init__(
             self,
             model_path: str,
             max_length: int = 32768,
+            stop_tokens: Optional[list[str]] = None,
+            stop_token_ids: Optional[List[int]] = None,
             **kwargs
     ):
         from llama_cpp import Llama
@@ -28,7 +31,8 @@ class LlamaCPPGenerator(Generator):
             raise ValueError("No gguf file found in the model directory")
         else:
             if len(model_files) > 1:
-                logger.warning(f"Multiple gguf files found in the model directory, using the first one: {model_files[0]}")
+                logger.warning(
+                    f"Multiple gguf files found in the model directory, using the first one: {model_files[0]}")
             model_file = os.path.join(model_path, model_files[0])
         self.model = Llama(
             model_file,
@@ -36,16 +40,18 @@ class LlamaCPPGenerator(Generator):
             **kwargs
         )
         # 不使用llama cpp 的 tokenizer
-        super(LlamaCPPGenerator, self).__init__(
+        super(LlamaCppGenerator, self).__init__(
             tokenizer=model_path,
             max_length=max_length,
+            stop_tokens=stop_tokens,
+            stop_token_ids=stop_token_ids,
         )
 
     async def async_generate(
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs
@@ -73,7 +79,7 @@ class LlamaCPPGenerator(Generator):
             self,
             prompt: str,
             max_tokens: int = 1024,
-            temperature: float = 0.6,
+            temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> AsyncIterator[str]:
