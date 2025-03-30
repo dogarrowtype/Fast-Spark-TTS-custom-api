@@ -4,7 +4,7 @@
 # Author  : Hui Huang
 import asyncio
 import numpy as np
-from fast_tts import AsyncSparkEngine
+from fast_tts import AsyncSparkEngine, SparkAcousticTokens
 
 long_text = ("今日是二零二五年三月十九日，国内外热点事件聚焦于国际局势、经济政策及社会民生领域。"
              "国际局势中，某国领导人围绕地区冲突停火问题展开对话，双方同意停止攻击对方能源设施并推动谈判，但对全面停火提议的落实仍存分歧。"
@@ -164,6 +164,63 @@ async def clone_voice_stream(engine: AsyncSparkEngine):
         audios.append(chunk)
     audio = np.concatenate(audios)
     return audio
+
+
+async def retain_acoustic_example(engine: AsyncSparkEngine):
+    """
+    复用音色例子
+    """
+    # 1. 随机测试一句话，设置return_acoustic_tokens为True
+    wav, tokens = await engine.generate_voice_async(
+        text="今日是二零二五年三月十九日，国内外热点事件聚焦于国际局势、经济政策及社会民生领域。",
+        return_acoustic_tokens=True
+    )
+    # 2. 真巧，这是我想要的音色，直接保存为txt
+    tokens.save("acoustic_tokens.txt")
+    # 同时保存第一次生成的音频，以便对比
+    engine.write_audio(wav, "first.wav")
+
+    # 3. 加载保存的音色，生成第二个音频
+    wav = await engine.generate_voice_async(
+        text="国际局势中，某国领导人围绕地区冲突停火问题展开对话，双方同意停止攻击对方能源设施并推动谈判，但对全面停火提议的落实仍存分歧。",
+        acoustic_tokens=SparkAcousticTokens.load("acoustic_tokens.txt"),
+    )
+    engine.write_audio(wav, "second.wav")
+    # 4. 试听first.wav和second.wav，惊奇发现，这两个音频的音色是一致的
+
+
+async def retain_acoustic_stream_example(engine: AsyncSparkEngine):
+    """
+    流式输出时，复用音色例子
+    """
+    # 1. 随机测试一句话，设置return_acoustic_tokens为True
+    audios = []
+    acoustic_tokens = None
+    async for chunk in engine.generate_voice_stream_async(
+            text="身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。",
+            return_acoustic_tokens=True
+    ):
+        if isinstance(chunk, SparkAcousticTokens):
+            acoustic_tokens = chunk
+        else:
+            audios.append(chunk)
+    audio = np.concatenate(audios)
+
+    # 2. 真巧，这是我想要的音色，直接保存为txt
+    engine.write_audio(audio, "first.wav")
+    acoustic_tokens.save("acoustic_tokens.txt")
+
+    # 3. 加载保存的音色，生成第二个音频
+    audios = []
+    async for chunk in engine.generate_voice_stream_async(
+            text="今日是二零二五年三月十九日，国内外热点事件聚焦于国际局势、经济政策及社会民生领域。",
+            acoustic_tokens=SparkAcousticTokens.load("acoustic_tokens.txt")
+    ):
+        audios.append(chunk)
+
+    # 4. 试听first.wav和second.wav，惊奇发现，这两个音频的音色是一致的
+    audio = np.concatenate(audios)
+    engine.write_audio(audio, "second.wav")
 
 
 async def run():

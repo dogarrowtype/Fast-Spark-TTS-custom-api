@@ -2,10 +2,12 @@
 # Time      :2025/3/29 11:16
 # Author    :Hui Huang
 import asyncio
+import json
 import math
 import os.path
 import re
-from typing import Literal, Optional, Callable, Tuple, AsyncIterator
+from dataclasses import dataclass
+from typing import Literal, Optional, Callable, Tuple, AsyncIterator, overload
 
 import numpy as np
 import torch
@@ -45,6 +47,42 @@ GENDER_MAP = {
     "female": 0,
     "male": 1,
 }
+
+
+@dataclass
+class SparkAcousticTokens:
+    prompt: str
+    global_tokens: Optional[torch.Tensor] = None
+
+    def __post_init__(self):
+        self._parse_prompt()
+
+    def _parse_prompt(self):
+        acoustic = re.findall(
+            r"(<\|start_acoustic_token\|>.*?<\|end_global_token\|>)",
+            self.prompt)
+        global_tokens = [int(token) for token in re.findall(r"bicodec_global_(\d+)", self.prompt)]
+        if len(acoustic) == 0:
+            raise ValueError("No acoustic tokens found in prompt")
+        else:
+            self.prompt = acoustic[0]
+        if len(global_tokens) == 0:
+            raise ValueError("No global tokens found in prompt")
+        else:
+            global_token_ids = (
+                torch.tensor(global_tokens).unsqueeze(0).long()
+            )
+            self.global_tokens = global_token_ids
+
+    def save(self, filepath: str):
+        with open(filepath, 'w', encoding='utf8') as w:
+            w.write(self.prompt)
+
+    @classmethod
+    def load(cls, filepath: str):
+        with open(filepath, 'r', encoding='utf8') as r:
+            prompt = r.read()
+        return cls(prompt=prompt)
 
 
 def process_prompt(
@@ -689,7 +727,9 @@ class AsyncSparkEngine(BaseEngine):
             length_threshold: int = 50,
             window_size: int = 50,
             split_fn: Optional[Callable[[str], list[str]]] = None,
-            **kwargs) -> np.ndarray:
+            acoustic_tokens: Optional[SparkAcousticTokens | str] = None,
+            return_acoustic_tokens: bool = False,
+            **kwargs) -> np.ndarray | tuple[np.ndarray, SparkAcousticTokens]:
 
         segments = self.split_text(
             text,
@@ -701,12 +741,11 @@ class AsyncSparkEngine(BaseEngine):
 
         async def generate_audio(
                 segment: str,
-                acoustic_prompt: Optional[str] = None,
-                global_tokens: Optional[torch.Tensor] = None,
+                acoustic_token: Optional[SparkAcousticTokens] = None
         ):
             prompt = self.apply_prompt(text=segment, gender=gender, pitch=pitch, speed=speed)
-            if acoustic_prompt is not None:
-                prompt += acoustic_prompt
+            if acoustic_token is not None:
+                prompt += acoustic_token.prompt
             generated = await self._generate_audio_tokens(
                 prompt=prompt,
                 temperature=temperature,
@@ -715,7 +754,8 @@ class AsyncSparkEngine(BaseEngine):
                 max_tokens=max_tokens,
                 **kwargs
             )
-            current_global_tokens = generated['global_tokens'] if global_tokens is None else global_tokens
+            current_global_tokens = (
+                generated['global_tokens'] if acoustic_token is None else acoustic_token.global_tokens)
 
             audio = await self.tokens2wav(
                 global_tokens=current_global_tokens,
@@ -723,42 +763,39 @@ class AsyncSparkEngine(BaseEngine):
             )
             return {
                 "audio": audio,
-                "completion": generated['completion'],
-                "global_tokens": current_global_tokens
+                "completion": generated['completion']
             }
 
-        # 使用第一段生成音色token，将其与后面片段一起拼接，使用相同音色token引导输出semantic tokens。
-        first_output = await generate_audio(segments[0], acoustic_prompt=None)
+        if acoustic_tokens is not None and isinstance(acoustic_tokens, str):
+            acoustic_tokens = SparkAcousticTokens(acoustic_tokens)
 
-        if len(segments) > 1:
-            # 提取关于音色的token部分
-            first_acoustic = re.findall(
-                r"(<\|start_acoustic_token\|>.*?<\|end_global_token\|>)",
-                first_output['completion'])
-            if len(first_acoustic) > 0:
-                first_acoustic = first_acoustic[0]
-            else:
-                first_acoustic = None
-                logger.warning("第一个片段未成功生成音色相关tokens，将无法保存输出音频的音色一致性。")
+        audios = []
+        if acoustic_tokens is None:
+            # 如果没有传入音色，使用第一段生成音色token，将其与后面片段一起拼接，使用相同音色token引导输出semantic tokens。
+            first_output = await generate_audio(segments[0], acoustic_token=None)
+            acoustic_tokens = SparkAcousticTokens(first_output['completion'])
+            if len(segments) == 1:
+                audios.append(first_output['audio'])
+            segments = segments[1:]
 
+        if len(segments) > 0:
             semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
             limit_generate_audio = limit_concurrency(semaphore)(generate_audio)
 
             tasks = [asyncio.create_task(
                 limit_generate_audio(
                     segment,
-                    acoustic_prompt=first_acoustic,
-                    global_tokens=first_output['global_tokens']
+                    acoustic_token=acoustic_tokens
                 )
-            ) for segment in segments[1:]]
+            ) for segment in segments]
             # 并发执行所有任务
             generated_segments = await asyncio.gather(*tasks)
-            generated_audios = [first_output['audio']] + [out['audio'] for out in generated_segments]
-            final_audio = np.concatenate(generated_audios, axis=0)
-        else:
-            final_audio = first_output['audio']
-
-        return (final_audio * 32767).astype(np.int16)
+            audios = audios + [out['audio'] for out in generated_segments]
+        final_audio = np.concatenate(audios, axis=0)
+        output = (final_audio * 32767).astype(np.int16)
+        if return_acoustic_tokens:
+            return output, acoustic_tokens
+        return output
 
     async def generate_voice_stream_async(
             self,
@@ -777,7 +814,13 @@ class AsyncSparkEngine(BaseEngine):
             max_audio_chunk_duration: float = 8.0,
             audio_chunk_size_scale_factor: float = 2.0,
             audio_chunk_overlap_duration: float = 0.1,
-            **kwargs) -> AsyncIterator[np.ndarray]:
+            acoustic_tokens: Optional[SparkAcousticTokens | str] = None,
+            return_acoustic_tokens: bool = False,
+            **kwargs) -> AsyncIterator[np.ndarray | SparkAcousticTokens]:
+        """
+        若是 return_acoustic_tokens 设置为True，在最后会yield一个SparkAcousticTokens。
+        里面存储的声学tokens可以传入，第二次生成就会保持一样的音色。
+        """
         self.set_seed(seed=self.seed)
         if audio_chunk_duration < 0.5:
             err_msg = "audio_chunk_duration at least 0.5 seconds"
@@ -787,6 +830,9 @@ class AsyncSparkEngine(BaseEngine):
             err_msg = "audio_chunk_size_scale_factor should be greater than 1, change it according to your actual rtf"
             logger.error(err_msg)
             raise ValueError(err_msg)
+
+        if acoustic_tokens is not None and isinstance(acoustic_tokens, str):
+            acoustic_tokens = SparkAcousticTokens(acoustic_tokens)
 
         audio_tokenizer_frame_rate = 50
         max_chunk_size = math.ceil(max_audio_chunk_duration * audio_tokenizer_frame_rate)
@@ -805,8 +851,6 @@ class AsyncSparkEngine(BaseEngine):
         prompts = [process_prompt_control(segment, gender, pitch, speed) for segment in segments]
 
         completion = ""
-        acoustic_prompt = None
-        global_tokens = None
         semantic_tokens = []
 
         audio_index = 0
@@ -814,9 +858,9 @@ class AsyncSparkEngine(BaseEngine):
 
         for i in range(len(segments)):
             prompt = prompts[i]
-            if i > 0 and acoustic_prompt is not None:
-                prompt += acoustic_prompt
-            if i > 0 and (acoustic_prompt is None or global_tokens is None):
+            if acoustic_tokens is not None:
+                prompt += acoustic_tokens.prompt
+            if i > 0 and acoustic_tokens is None:
                 err_msg = "未成功生成音色prompt，本次推理失败"
                 logger.error(err_msg)
                 break
@@ -828,19 +872,13 @@ class AsyncSparkEngine(BaseEngine):
                     top_k=top_k,
                     **kwargs
             ):
-                completion += tokens
-                if acoustic_prompt is None and global_tokens is None:
+                if acoustic_tokens is None:
+                    completion += tokens
                     acoustics = re.findall(
                         r"(<\|start_acoustic_token\|>.*?<\|end_global_token\|>)",
                         completion)
                     if len(acoustics) > 0:
-                        acoustic_prompt = acoustics[0]
-                        global_token_ids = [int(token) for token in
-                                            re.findall(r"bicodec_global_(\d+)", acoustic_prompt)]
-                        global_token_ids = (
-                            torch.tensor(global_token_ids).unsqueeze(0).long()
-                        )
-                        global_tokens = global_token_ids
+                        acoustic_tokens = SparkAcousticTokens(acoustics[0])
                         completion = ""
                     else:
                         continue
@@ -855,7 +893,7 @@ class AsyncSparkEngine(BaseEngine):
                         audio_idx=audio_index,
                         semantic_tokens=semantic_tokens,
                         chunk_size=chunk_size,
-                        global_tokens=global_tokens,
+                        global_tokens=acoustic_tokens.global_tokens,
                         cross_fade_samples=cross_fade_samples,
                         fade_in=fade_in,
                         fade_out=fade_out,
@@ -875,7 +913,7 @@ class AsyncSparkEngine(BaseEngine):
                 audio_idx=audio_index,
                 semantic_tokens=semantic_tokens,
                 chunk_size=len(semantic_tokens),
-                global_tokens=global_tokens,
+                global_tokens=acoustic_tokens.global_tokens,
                 cross_fade_samples=cross_fade_samples,
                 fade_in=fade_in,
                 fade_out=fade_out,
@@ -887,3 +925,6 @@ class AsyncSparkEngine(BaseEngine):
             last_audio = processed['last_chunk_audio']
 
         yield (last_audio[-cross_fade_samples:] * 32767).astype(np.int16)
+
+        if return_acoustic_tokens:
+            yield acoustic_tokens

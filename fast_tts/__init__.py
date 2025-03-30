@@ -9,7 +9,8 @@ _import_structure = {
     "engine": [
         "BaseEngine",
         "AsyncSparkEngine",
-        "AsyncOrpheusEngine"
+        "AsyncOrpheusEngine",
+        "SparkAcousticTokens"
     ],
     "logger": [
         "get_logger",
@@ -22,7 +23,8 @@ if TYPE_CHECKING:
     from .engine import (
         BaseEngine,
         AsyncSparkEngine,
-        AsyncOrpheusEngine
+        AsyncOrpheusEngine,
+        SparkAcousticTokens
     )
 else:
     import sys
