@@ -14,22 +14,9 @@
 - 🔊 **长文本语音合成**: 实现超长文本语音合成，并保持音色一致性。
 - 🔄 **支持流式语音合成**: 实现实时语音合成，边生成边播放，降低等待时间，提升交互体验
 
-## 🖼️ 界面预览
+## 🖼️ 使用示例
 
-<div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;">
-  <div style="text-align: center;">
-    <p><strong>语音合成</strong></p>    
-    <img src="source/generate_ui.png" alt="语音合成界面">
-  </div>
-  <div style="text-align: center;">
-    <p><strong>声音克隆</strong></p>
-    <img src="source/clone.png" alt="声音克隆界面">
-  </div>
-  <div style="text-align: center;">
-    <p><strong>角色克隆</strong></p>
-    <img src="source/role_clone.png" alt="角色克隆界面">
-  </div>
-</div>
+https://github.com/user-attachments/assets/42e36399-c1b7-40e1-908b-24cfa603a55f
 
 ## 🛠️ 快速开始
 
