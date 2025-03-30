@@ -156,7 +156,7 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
                 audio_bytes = (chunk * (2 ** 15)).astype(np.int16).tobytes()
                 yield audio_bytes
 
-        return StreamingResponse(generate_audio_stream(), media_type="audio/pcm")
+        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
     else:
         try:
             audio = await engine.generate_voice_async(
@@ -230,7 +230,7 @@ async def clone_voice(
                 out_bytes = (chunk * (2 ** 15)).astype(np.int16).tobytes()
                 yield out_bytes
 
-        return StreamingResponse(generate_audio_stream(), media_type="audio/pcm")
+        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
     else:
         try:
             audio = await engine.clone_voice_async(
@@ -289,7 +289,7 @@ async def speak(req: SpeakRequest, raw_request: Request):
                 out_bytes = (chunk * (2 ** 15)).astype(np.int16).tobytes()
                 yield out_bytes
 
-        return StreamingResponse(generate_audio_stream(), media_type="audio/pcm")
+        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
     else:
         try:
             audio = await engine.speak_async(
