@@ -774,8 +774,7 @@ class AsyncSparkEngine(BaseEngine):
             # 如果没有传入音色，使用第一段生成音色token，将其与后面片段一起拼接，使用相同音色token引导输出semantic tokens。
             first_output = await generate_audio(segments[0], acoustic_token=None)
             acoustic_tokens = SparkAcousticTokens(first_output['completion'])
-            if len(segments) == 1:
-                audios.append(first_output['audio'])
+            audios.append(first_output['audio'])
             segments = segments[1:]
 
         if len(segments) > 0:
