@@ -18,22 +18,10 @@
 - 🔊 **Long Text Speech Synthesis**: Capable of synthesizing extended texts while maintaining consistent voice timbre
 - 🔄 **Streaming Text-to-Speech Support**: Enables real-time synthesis with simultaneous generation and playback, reducing waiting times and enhancing the interactive experience
 
-## 🖼️ Interface Preview
+## 🖼️ Example
 
-<div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;">
-  <div style="text-align: center;">
-    <p><strong>Speech Synthesis</strong></p>    
-    <img src="source/generate_ui.png" alt="Speech Synthesis Interface">
-  </div>
-  <div style="text-align: center;">
-    <p><strong>Voice Cloning</strong></p>
-    <img src="source/clone.png" alt="Voice Cloning Interface">
-  </div>
-  <div style="text-align: center;">
-    <p><strong>Character Cloning</strong></p>
-    <img src="source/role_clone.png" alt="Character Cloning Interface">
-  </div>
-</div>
+https://github.com/user-attachments/assets/42e36399-c1b7-40e1-908b-24cfa603a55f
+
 
 ## 🛠️ Quick Start
 
