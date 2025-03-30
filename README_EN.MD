@@ -199,3 +199,7 @@ adhere to safety and ethical principles in AI research and applications.
 This project is built upon [Spark-TTS](https://github.com/SparkAudio/Spark-TTS) and is distributed under the same
 open-source license as SparkTTS. For details, please refer to the
 original [SparkTTS License](https://github.com/SparkAudio/Spark-TTS/blob/main/LICENSE).
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=HuiResearch/Fast-Spark-TTS&type=Date)](https://www.star-history.com/#HuiResearch/Fast-Spark-TTS&Date)

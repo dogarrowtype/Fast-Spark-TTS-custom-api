@@ -4,6 +4,8 @@
 
 > 🚀 **FastSparkTTS** - 基于SparkTTS模型，提供高质量中文语音合成与声音克隆服务。通过简单易用的Web界面，让您轻松创建自然逼真的人声，满足各种场景需求。
 
+>如果项目对您有帮助，欢迎给项目点个star。
+
 ## ✨ 特性
 
 - 🚀 **多种后端加速**: 支持`vllm`、`sglang`、`llama cpp`多种加速策略
@@ -227,3 +229,7 @@ http://localhost:7860
 
 本项目基于 [Spark-TTS](https://github.com/SparkAudio/Spark-TTS) 构建，并采用与 SparkTTS
 相同的开源许可协议进行分发。详情请参阅原始 [SparkTTS 许可协议](https://github.com/SparkAudio/Spark-TTS/blob/main/LICENSE)。
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=HuiResearch/Fast-Spark-TTS&type=Date)](https://www.star-history.com/#HuiResearch/Fast-Spark-TTS&Date)
