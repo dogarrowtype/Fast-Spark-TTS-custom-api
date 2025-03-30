@@ -557,7 +557,7 @@ class AsyncSparkEngine(BaseEngine):
             split_fn=split_fn,
             **kwargs
         )
-        return audio
+        return (audio * 32767).astype(np.int16)
 
     async def speak_stream_async(
             self,
@@ -599,7 +599,7 @@ class AsyncSparkEngine(BaseEngine):
                 audio_chunk_overlap_duration=audio_chunk_overlap_duration,
                 **kwargs
         ):
-            yield chunk
+            yield (chunk * 32767).astype(np.int16)
 
     async def clone_voice_async(
             self,
@@ -632,7 +632,7 @@ class AsyncSparkEngine(BaseEngine):
             split_fn=split_fn,
             **kwargs
         )
-        return audio
+        return (audio * 32767).astype(np.int16)
 
     async def clone_voice_stream_async(
             self,
@@ -674,7 +674,7 @@ class AsyncSparkEngine(BaseEngine):
                 audio_chunk_overlap_duration=audio_chunk_overlap_duration,
                 **kwargs
         ):
-            yield chunk
+            yield (chunk * 32767).astype(np.int16)
 
     async def generate_voice_async(
             self,
@@ -758,7 +758,7 @@ class AsyncSparkEngine(BaseEngine):
         else:
             final_audio = first_output['audio']
 
-        return final_audio
+        return (final_audio * 32767).astype(np.int16)
 
     async def generate_voice_stream_async(
             self,
@@ -862,8 +862,7 @@ class AsyncSparkEngine(BaseEngine):
                         last_chunk_audio=last_audio,
                         overlap_chunk_size=overlap_chunk_size,
                     )
-
-                    yield processed['yield_audio']
+                    yield (processed['yield_audio'] * 32767).astype(np.int16)
 
                     audio_index = processed['audio_idx']
                     last_audio = processed['last_chunk_audio']
@@ -884,7 +883,7 @@ class AsyncSparkEngine(BaseEngine):
                 overlap_chunk_size=overlap_chunk_size,
             )
 
-            yield processed['yield_audio']
+            yield (processed['yield_audio'] * 32767).astype(np.int16)
             last_audio = processed['last_chunk_audio']
 
-        yield last_audio[-cross_fade_samples:]
+        yield (last_audio[-cross_fade_samples:] * 32767).astype(np.int16)

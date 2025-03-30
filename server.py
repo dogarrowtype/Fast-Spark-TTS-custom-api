@@ -153,7 +153,7 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
                     audio_chunk_size_scale_factor=req.audio_chunk_size_scale_factor,
                     audio_chunk_overlap_duration=req.audio_chunk_overlap_duration,
             ):
-                audio_bytes = (chunk * (2 ** 15)).astype(np.int16).tobytes()
+                audio_bytes = chunk.tobytes()
                 yield audio_bytes
 
         return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
@@ -227,7 +227,7 @@ async def clone_voice(
                     audio_chunk_size_scale_factor=req.audio_chunk_size_scale_factor,
                     audio_chunk_overlap_duration=req.audio_chunk_overlap_duration,
             ):
-                out_bytes = (chunk * (2 ** 15)).astype(np.int16).tobytes()
+                out_bytes = chunk.tobytes()
                 yield out_bytes
 
         return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
@@ -286,7 +286,7 @@ async def speak(req: SpeakRequest, raw_request: Request):
                     audio_chunk_size_scale_factor=req.audio_chunk_size_scale_factor,
                     audio_chunk_overlap_duration=req.audio_chunk_overlap_duration,
             ):
-                out_bytes = (chunk * (2 ** 15)).astype(np.int16).tobytes()
+                out_bytes = chunk.tobytes()
                 yield out_bytes
 
         return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
