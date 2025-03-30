@@ -71,7 +71,7 @@ class SparkTokenizer:
         self.device = torch.device(device)
         wav2vec_path = os.path.join(model_path, "wav2vec2-large-xlsr-53")
         self.wav2vec2 = Wav2Vec2Model.from_pretrained(
-            wav2vec_path,
+            os.path.join(model_path, "BiCodec"),
             attn_implementation=attn_implementation
         )
         self.wav2vec2.config.output_hidden_states = True

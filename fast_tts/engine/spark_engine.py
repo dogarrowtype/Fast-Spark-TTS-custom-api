@@ -194,14 +194,14 @@ class AsyncSparkEngine(BaseEngine):
         self.set_seed(seed)
 
         self.audio_tokenizer = SparkTokenizer(
-            os.path.join(model_path, "BiCodec"),
+            model_path,
             device=self._auto_detect_device(tokenizer_device),
             attn_implementation=wav2vec_attn_implementation,
             batch_size=batch_size,
             wait_timeout=wait_timeout
         )
         self.audio_detokenizer = SparkDeTokenizer(
-            model_path=os.path.join(model_path, "BiCodec"),
+            model_path,
             device=self._auto_detect_device(detokenizer_device),
             batch_size=batch_size,
             wait_timeout=wait_timeout

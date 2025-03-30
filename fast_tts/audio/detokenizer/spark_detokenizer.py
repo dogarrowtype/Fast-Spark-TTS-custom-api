@@ -47,7 +47,7 @@ class SparkDeTokenizer:
             wait_timeout: float = 0.01):
         self.device = torch.device(device)
         self.model = SparkDeTokenizerModel.from_pretrained(
-            model_path
+            os.path.join(model_path, "BiCodec")
         ).to(self.device)
 
         self._batch_processor = AsyncBatchEngine(
