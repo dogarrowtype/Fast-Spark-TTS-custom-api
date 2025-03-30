@@ -185,7 +185,7 @@ def build_ui():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Gradio Web UI")
     parser.add_argument("--backend_url", type=str, default="http://127.0.0.1:8000",
-                        help="FastSparkTTS服务端接口地址")
+                        help="FastTTS服务端接口地址")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="前端地址")
     parser.add_argument("--port", type=int, default=7860, help="前端端口")
     parser.add_argument("--api_key", type=str, default=None, help="后端接口访问的api key")

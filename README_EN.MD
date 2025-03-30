@@ -1,8 +1,8 @@
-# FastSparkTTS Speech Synthesis and Cloning Platform 🔊
+# FastTTS Speech Synthesis and Cloning Platform 🔊
 
 [中文](README.MD) | [English](README_EN.MD)
 
-> 🚀 **FastSparkTTS** – Based on the SparkTTS model, this platform provides high-quality Chinese speech synthesis and
+> 🚀 **FastTTS** – Based on the SparkTTS model, this platform provides high-quality Chinese speech synthesis and
 > voice cloning services. With an easy-to-use web interface, you can effortlessly create natural and realistic human
 > voices to suit various scenarios.
 

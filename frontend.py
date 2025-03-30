@@ -225,9 +225,9 @@ def clone_by_role():
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="FastSparkTTS 前端")
+    parser = argparse.ArgumentParser(description="FastTTS 前端")
     parser.add_argument("--backend_url", type=str, default="http://127.0.0.1:8000",
-                        help="FastSparkTTS服务端接口地址")
+                        help="FastTTS服务端接口地址")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="前端地址")
     parser.add_argument("--port", type=int, default=8001, help="前端端口")
     parser.add_argument("--api_key", type=str, default=None, help="后端接口访问的api key")
@@ -235,7 +235,7 @@ if __name__ == '__main__':
 
     setup_logging()
 
-    logger.info("启动FastSparkTTS前端服务")
+    logger.info("启动FastTTS前端服务")
     logger.info(f"Config: {args}")
 
     app.run(host=args.host, port=args.port)

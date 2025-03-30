@@ -364,7 +364,7 @@ def build_app(args) -> FastAPI:
 
 if __name__ == '__main__':
     # 使用 argparse 获取启动参数
-    parser = argparse.ArgumentParser(description="FastSparkTTS 后端")
+    parser = argparse.ArgumentParser(description="FastTTS 后端")
     parser.add_argument("--model_path", type=str, required=True,
                         help="模型路径")
     parser.add_argument("--backend", type=str, required=True,
@@ -405,7 +405,7 @@ if __name__ == '__main__':
 
     setup_logging()
 
-    logger.info("启动 FastAPI TTS 服务")
+    logger.info("启动 FastTTS 服务")
     logger.info(f"Config: {args}")
     app = build_app(args)
     uvicorn.run(app, host=args.host, port=args.port)
