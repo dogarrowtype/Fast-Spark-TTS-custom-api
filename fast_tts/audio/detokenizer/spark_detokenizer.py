@@ -93,6 +93,8 @@ class SparkDeTokenizer:
                 "audio": audio,
             })
 
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()
         return responses
 
     async def detokenize_async(self, request: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:

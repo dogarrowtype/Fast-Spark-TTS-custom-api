@@ -86,6 +86,8 @@ class SnacDeTokenizer:
         for codes in requests:
             audio = self.detokenize(codes).detach().cpu()
             outputs.append({"audio": audio})
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()
         return outputs
 
     async def detokenize_async(self, request: list[torch.Tensor]) -> dict[str, torch.Tensor]:
