@@ -462,6 +462,102 @@
             background-color: #e8eaed;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
+        .timer-container {
+            margin-top: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: rgba(66, 133, 244, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: var(--primary-color);
+            border: 1px solid rgba(66, 133, 244, 0.3);
+        }
+
+        .timer-icon {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .timer-display {
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 500;
+        }
+
+        .processing-time {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #5f6368;
+            text-align: center;
+            padding: 8px;
+            background-color: rgba(0, 0, 0, 0.03);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .processing-time-highlight {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .switch-container {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .switch-container span {
+            line-height: 24px; /* 与开关高度一致 */
+        }
+
+        .custom-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            width: 46px;
+            height: 24px;
+            margin-left: 10px;
+        }
+
+        .custom-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .custom-switch .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 24px;
+        }
+
+        .custom-switch .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        .custom-switch input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+
+        .custom-switch input:checked + .slider:before {
+            transform: translateX(22px);
+        }
     </style>
 </head>
 <body>
@@ -534,8 +630,13 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="generate-stream">是否流式合成</label>
-                    <input type="checkbox" id="generate-stream" name="stream" value="true">
+                    <div class="switch-container">
+                        <span>是否流式合成</span>
+                        <label class="custom-switch">
+                            <input type="checkbox" id="generate-stream" name="stream" value="true">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </div>
                 <div class="advanced-options">
                     <div class="advanced-header" onclick="toggleAdvanced('generate-advanced')">
@@ -630,8 +731,13 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="clone-stream">是否流式合成</label>
-                    <input type="checkbox" id="clone-stream" name="stream" value="true">
+                    <div class="switch-container">
+                        <span>是否流式合成</span>
+                        <label class="custom-switch">
+                            <input type="checkbox" id="clone-stream" name="stream" value="true">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </div>
                 <div class="advanced-options">
                     <div class="advanced-header" onclick="toggleAdvanced('clone-advanced')">
@@ -718,8 +824,13 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="clone-role-stream">是否流式合成</label>
-                    <input type="checkbox" id="clone-role-stream" name="stream" value="true">
+                    <div class="switch-container">
+                        <span>是否流式合成</span>
+                        <label class="custom-switch">
+                            <input type="checkbox" id="clone-role-stream" name="stream" value="true">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </div>
                 <div class="advanced-options">
                     <div class="advanced-header" onclick="toggleAdvanced('clone-role-advanced')">
@@ -806,8 +917,13 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="multi-role-stream">是否流式合成</label>
-                    <input type="checkbox" id="multi-role-stream" name="stream" value="true">
+                    <div class="switch-container">
+                        <span>是否流式合成</span>
+                        <label class="custom-switch">
+                            <input type="checkbox" id="multi-role-stream" name="stream" value="true">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </div>
                 <div class="advanced-options">
                     <div class="advanced-header" onclick="toggleAdvanced('multi-role-advanced')">
