@@ -19,6 +19,14 @@ long_text = ("今日是二零二五年三月十九日，国内外热点事件聚
              "民生政策方面，多地推出新举措：某地限制顺风车单日接单次数以规范运营，另一地启动职工数字技能培训计划，目标三年内覆盖十万女性从业者。"
              "整体来看，今日热点呈现国际博弈复杂化、国内经济科技加速转型、民生政策精准化调整的特点。")
 
+# 每个角色文本前用<角色>标识出来
+multi_speaker_text = "<赞助商>哪吒归来，风波再起，父子母子间情感交织。" \
+                     "<哪吒>爹！我虽为魔丸转世，但我心向善！" \
+                     "<李靖>你造下祸端，怎能轻饶？" \
+                     "<殷夫人>老爷，哪吒是我们的孩子，他愿悔改，就该给他机会。" \
+                     "<李靖>哼，但愿你言出必行，不再害人！" \
+                     "<哪吒>孩儿誓不负母亲所望！"
+
 
 def prepare_engine():
     # vllm
@@ -221,6 +229,37 @@ async def retain_acoustic_stream_example(engine: AsyncSparkEngine):
     # 4. 试听first.wav和second.wav，惊奇发现，这两个音频的音色是一致的
     audio = np.concatenate(audios)
     engine.write_audio(audio, "second.wav")
+
+
+async def multi_speaker_example(engine: AsyncSparkEngine):
+    """
+    多角色音频合成示例
+    """
+    # 先添加角色音频，如果使用Orpheus，则不要添加角色，只能使用已有角色
+    await engine.add_speaker("哪吒", audio="data/roles/哪吒/reference_audio.wav")
+    await engine.add_speaker("李靖", audio="data/roles/李靖/reference_audio.wav")
+    await engine.add_speaker("殷夫人", audio="data/roles/殷夫人/reference_audio.wav")
+    await engine.add_speaker("赞助商", audio="data/roles/赞助商/reference_audio.wav")
+
+    audio = await engine.multi_speak_async(multi_speaker_text)
+    engine.write_audio(audio, "result.wav")
+
+
+async def multi_speaker_stream_example(engine: AsyncSparkEngine):
+    """
+        多角色音频流式合成示例
+        """
+    # 先添加角色音频，如果使用Orpheus，则不要添加角色，只能使用已有角色
+    await engine.add_speaker("哪吒", audio="data/roles/哪吒/reference_audio.wav")
+    await engine.add_speaker("李靖", audio="data/roles/李靖/reference_audio.wav")
+    await engine.add_speaker("殷夫人", audio="data/roles/殷夫人/reference_audio.wav")
+    await engine.add_speaker("赞助商", audio="data/roles/赞助商/reference_audio.wav")
+
+    audios = []
+    async for chunk in engine.multi_speak_stream_async(text=multi_speaker_text):
+        audios.append(chunk)
+    audio = np.concatenate(audios)
+    engine.write_audio(audio, "result.wav")
 
 
 async def run():

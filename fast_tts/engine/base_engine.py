@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Time      :2025/3/29 11:17
 # Author    :Hui Huang
+import asyncio
 import platform
 import random
 from typing import Literal, Optional, Callable, AsyncIterator
@@ -8,9 +9,12 @@ import soundfile as sf
 import torch
 import numpy as np
 from ..llm import initialize_llm
-from .utils import split_text
+from .utils import split_text, parse_multi_speaker_text, limit_concurrency
 from functools import partial
 from abc import ABC, abstractmethod
+from ..logger import get_logger
+
+logger = get_logger()
 
 
 class BaseEngine(ABC):
@@ -47,6 +51,11 @@ class BaseEngine(ABC):
             stop_token_ids=stop_token_ids,
             **kwargs
         )
+        self._batch_size = batch_size
+
+    @abstractmethod
+    def list_roles(self) -> list[str]:
+        ...
 
     @classmethod
     def set_seed(cls, seed: int):
@@ -103,6 +112,90 @@ class BaseEngine(ABC):
             split_fn: Optional[Callable[[str], list[str]]] = None,
             **kwargs) -> np.ndarray:
         ...
+
+    def _parse_multi_speak_text(self, text: str) -> list[dict[str, str]]:
+        if len(self.list_roles()) == 0:
+            msg = f"{self.__class__.__name__} 中角色库为空，无法实现多角色语音合成。"
+            logger.error(msg)
+            raise RuntimeError(msg)
+
+        segments = parse_multi_speaker_text(text, self.list_roles())
+        if len(segments) == 0:
+            msg = f"多角色文本解析结果为空，请检查输入文本格式：{text}"
+            logger.error(msg)
+            raise RuntimeError(msg)
+
+        return segments
+
+    async def multi_speak_async(
+            self,
+            text: str,
+            temperature: float = 0.9,
+            top_k: int = 50,
+            top_p: float = 0.95,
+            max_tokens: int = 4096,
+            length_threshold: int = 50,
+            window_size: int = 50,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
+            **kwargs
+    ) -> np.ndarray:
+        """
+        调用多角色共同合成语音。
+        text (str): 待解析的文本，文本中各段台词前以 <角色名> 标识。
+        如：<角色1>你好，欢迎来到我们的节目。<角色2>谢谢，我很高兴在这里。<角色3>大家好！
+        """
+        segments = self._parse_multi_speak_text(text)
+        semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
+        limit_speak = limit_concurrency(semaphore)(self.speak_async)
+
+        tasks = [
+            asyncio.create_task(
+                limit_speak(
+                    name=segment['name'],
+                    text=segment['text'],
+                    temperature=temperature,
+                    top_k=top_k,
+                    top_p=top_p,
+                    max_tokens=max_tokens,
+                    length_threshold=length_threshold,
+                    window_size=window_size,
+                    split_fn=split_fn,
+                    **kwargs
+                )
+            ) for segment in segments]
+        # 并发执行所有任务
+        audios = await asyncio.gather(*tasks)
+        audio = np.concatenate(audios, axis=0)
+        return audio
+
+    async def multi_speak_stream_async(
+            self,
+            text: str,
+            temperature: float = 0.9,
+            top_k: int = 50,
+            top_p: float = 0.95,
+            max_tokens: int = 4096,
+            length_threshold: int = 50,
+            window_size: int = 50,
+            split_fn: Optional[Callable[[str], list[str]]] = None,
+            **kwargs
+    ) -> AsyncIterator[np.ndarray]:
+        segments = self._parse_multi_speak_text(text)
+
+        for segment in segments:
+            async for chunk in self.speak_stream_async(
+                    name=segment['name'],
+                    text=segment['text'],
+                    temperature=temperature,
+                    top_k=top_k,
+                    top_p=top_p,
+                    max_tokens=max_tokens,
+                    length_threshold=length_threshold,
+                    window_size=window_size,
+                    split_fn=split_fn,
+                    **kwargs
+            ):
+                yield chunk
 
     @abstractmethod
     async def speak_stream_async(

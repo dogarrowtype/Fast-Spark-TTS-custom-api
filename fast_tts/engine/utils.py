@@ -2,10 +2,11 @@
 # Time      :2025/3/29 11:32
 # Author    :Hui Huang
 import asyncio
-import re
 from typing import Callable, Optional
-
 import regex
+from ..logger import get_logger
+
+logger = get_logger()
 
 
 def limit_concurrency(semaphore: asyncio.Semaphore):
@@ -125,3 +126,37 @@ def split_text(
     if current_segment:
         segments.append(current_segment)
     return [seg for seg in segments if not is_only_punctuation(seg)]
+
+
+import re
+
+
+def parse_multi_speaker_text(text, speakers):
+    """
+    解析文本，将文本分割为多个角色及其对应的台词。
+
+    参数:
+      text (str): 待解析的文本，文本中各段台词前以 <角色名> 标识。
+      speakers (list): 允许的角色名称列表，只有在列表中的角色会被解析。
+
+    返回:
+      list: 每个元素为一个字典，包含 'name'（角色名称）和 'text'（台词文本）。
+    """
+    # 使用正则表达式分割文本，其中 '([^>]+)' 捕获 < > 中的角色名
+    parts = re.split(r'<([^>]+)>', text)
+    result = []
+
+    # 如果文本以 <角色名> 开始，则 parts[0] 可能为空
+    # parts 的排列方式为：[前置文本, 角色1, 台词1, 角色2, 台词2, …]
+    # 从索引 1 开始，每隔两个取一次：索引1为角色名，索引2为对应的文本
+    for i in range(1, len(parts), 2):
+        role = parts[i].strip()
+        # 仅处理允许的角色
+        if role not in speakers:
+            logger.warning(f"{role}并不在已有的角色列表（{', '.join(speakers)}）中，将跳过该角色的文本。")
+            continue
+        # 获取角色后面的文本，如果存在
+        dialogue = parts[i + 1].strip() if i + 1 < len(parts) else ""
+        if dialogue:
+            result.append({"name": role, "text": dialogue})
+    return result
