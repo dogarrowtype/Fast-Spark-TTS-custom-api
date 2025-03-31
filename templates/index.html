@@ -438,6 +438,7 @@
             font-weight: 500;
         }
 
+        /* 优化多角色支持列表样式 */
         .multi-role-list {
             display: flex;
             flex-wrap: wrap;
@@ -454,29 +455,7 @@
             color: #202124;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
             transition: background-color 0.3s, box-shadow 0.3s;
-        }
-
-        .multi-role-list-item:hover {
-            background-color: #e8eaed;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .multi-role-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding: 10px 0;
-        }
-
-        .multi-role-list-item {
-            background-color: #f1f3f4; /* Google 式浅灰 */
-            border: 1px solid #dadce0;
-            border-radius: 20px;
-            padding: 5px 15px;
-            font-size: 14px;
-            color: #202124;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-            transition: background-color 0.3s, box-shadow 0.3s;
+            cursor: pointer;
         }
 
         .multi-role-list-item:hover {
@@ -821,7 +800,7 @@
                               required></textarea>
                 </div>
                 <div class="form-group">
-                    <label>支持的角色列表</label>
+                    <label>支持的角色列表 (点击可在输入文本中添加角色)</label>
                     <div id="multi-role-supported">
                         <p>加载中...</p>
                     </div>
@@ -1298,7 +1277,7 @@
             });
     }
 
-    // 获取多角色支持列表
+    // 获取多角色支持列表（优化后的UI展示，并支持点击插入角色标签）
     function fetchMultiRoleSupported() {
         fetch('/audio_roles')
             .then(response => response.json())
@@ -1312,6 +1291,19 @@
                         const item = document.createElement('div');
                         item.className = 'multi-role-list-item';
                         item.textContent = role.name;
+                        // 添加点击事件，点击后在文本框中追加 <角色名>
+                        item.addEventListener('click', () => {
+                            const textarea = document.getElementById('multi-role-text');
+                            const roleTag = `<${role.name}>`;
+                            if (textarea) {
+                                // 如果文本框已有内容且不以空格结束，先追加一个空格
+                                if (textarea.value && !textarea.value.endsWith(' ')) {
+                                    textarea.value += ' ';
+                                }
+                                textarea.value += roleTag;
+                                textarea.focus();
+                            }
+                        });
                         list.appendChild(item);
                     });
                     container.appendChild(list);
