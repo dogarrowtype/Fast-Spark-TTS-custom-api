@@ -147,7 +147,6 @@ class BaseEngine(ABC):
         segments = self._parse_multi_speak_text(text)
         semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
         limit_speak = limit_concurrency(semaphore)(self.speak_async)
-
         tasks = [
             asyncio.create_task(
                 limit_speak(

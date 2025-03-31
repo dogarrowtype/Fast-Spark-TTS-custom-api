@@ -224,6 +224,30 @@ def clone_by_role():
         return generate(f"{args.backend_url}/speak", payload)
 
 
+@app.route('/multi_role_speak', methods=['GET'])
+def multi_role_speak():
+    data = request.args
+    stream = data.get("stream", False)
+    if stream == 'true' or stream is True:
+        stream = True
+    else:
+        stream = False
+
+    payload = {
+        "text": data.get('text', ''),
+        "temperature": float(data.get('temperature', 0.9)),
+        "top_p": float(data.get('top_p', 0.95)),
+        "top_k": int(data.get('top_k', 50)),
+        "max_tokens": int(data.get('max_tokens', 4096)),
+        "stream": stream
+    }
+    if stream:
+        return Response(stream_generate(f"{args.backend_url}/multi_speak", payload), mimetype='audio/wav')
+
+    else:
+        return generate(f"{args.backend_url}/multi_speak", payload)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="FastTTS 前端")
     parser.add_argument("--backend_url", type=str, default="http://127.0.0.1:8000",

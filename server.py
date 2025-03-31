@@ -83,6 +83,18 @@ class SpeakRequest(BaseModel):
     audio_chunk_overlap_duration: float = 0.1
 
 
+# 定义多角色语音合成请求体
+class MultiSpeakRequest(BaseModel):
+    text: str
+    temperature: float = 0.9
+    top_k: int = 50
+    top_p: float = 0.95
+    max_tokens: int = 4096
+    length_threshold: int = 50
+    window_size: int = 50
+    stream: bool = False
+
+
 async def load_roles(async_engine: AsyncSparkEngine, role_dir: Optional[str] = None):
     # 加载已有的角色音频
     if role_dir is not None and os.path.exists(role_dir):
@@ -294,6 +306,44 @@ async def speak(req: SpeakRequest, raw_request: Request):
         try:
             audio = await engine.speak_async(
                 name=req.name,
+                text=req.text,
+                temperature=req.temperature,
+                top_p=req.top_p,
+                top_k=req.top_k,
+                max_tokens=req.max_tokens,
+                length_threshold=req.length_threshold,
+                window_size=req.window_size,
+            )
+        except Exception as e:
+            logger.warning(f"TTS 合成失败: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        audio_io = await process_audio_buffer(audio)
+        return StreamingResponse(audio_io, media_type="audio/wav")
+
+
+@router.post("/multi_speak")
+async def multi_speak(req: MultiSpeakRequest, raw_request: Request):
+    engine: AsyncSparkEngine = raw_request.app.state.engine
+
+    if req.stream:
+        async def generate_audio_stream():
+            async for chunk in engine.multi_speak_stream_async(
+                    text=req.text,
+                    temperature=req.temperature,
+                    top_p=req.top_p,
+                    top_k=req.top_k,
+                    max_tokens=req.max_tokens,
+                    length_threshold=req.length_threshold,
+                    window_size=req.window_size
+            ):
+                out_bytes = chunk.tobytes()
+                yield out_bytes
+
+        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
+    else:
+        try:
+            audio = await engine.multi_speak_async(
                 text=req.text,
                 temperature=req.temperature,
                 top_p=req.top_p,

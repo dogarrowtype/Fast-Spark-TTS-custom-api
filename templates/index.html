@@ -437,6 +437,52 @@
             color: var(--primary-color);
             font-weight: 500;
         }
+
+        .multi-role-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px 0;
+        }
+
+        .multi-role-list-item {
+            background-color: #f1f3f4; /* Google 式浅灰 */
+            border: 1px solid #dadce0;
+            border-radius: 20px;
+            padding: 5px 15px;
+            font-size: 14px;
+            color: #202124;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        .multi-role-list-item:hover {
+            background-color: #e8eaed;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .multi-role-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px 0;
+        }
+
+        .multi-role-list-item {
+            background-color: #f1f3f4; /* Google 式浅灰 */
+            border: 1px solid #dadce0;
+            border-radius: 20px;
+            padding: 5px 15px;
+            font-size: 14px;
+            color: #202124;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        .multi-role-list-item:hover {
+            background-color: #e8eaed;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -465,6 +511,9 @@
         </button>
         <button class="tab" onclick="switchTab('clone_role')" data-tab="clone_role">
             <i class="fas fa-user"></i> 角色克隆
+        </button>
+        <button class="tab" onclick="switchTab('multi_role')" data-tab="multi_role">
+            <i class="fas fa-users"></i> 多角色合成
         </button>
     </div>
 
@@ -759,6 +808,96 @@
             </div>
         </div>
     </div>
+    <!-- 多角色语音合成 -->
+    <div id="multi_role-tab" class="tab-content">
+        <div class="card">
+            <h3>多角色语音合成</h3>
+            <div id="multi-role-alert" class="alert"></div>
+            <form id="multi-role-form">
+                <div class="form-group">
+                    <label for="multi-role-text">输入文本</label>
+                    <textarea id="multi-role-text" name="text"
+                              placeholder="请输入文本，格式示例：&lt;角色1&gt;你好，&lt;角色2&gt;早上好"
+                              required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>支持的角色列表</label>
+                    <div id="multi-role-supported">
+                        <p>加载中...</p>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="multi-role-stream">是否流式合成</label>
+                    <input type="checkbox" id="multi-role-stream" name="stream" value="true">
+                </div>
+                <div class="advanced-options">
+                    <div class="advanced-header" onclick="toggleAdvanced('multi-role-advanced')">
+                        <h4>生成参数设置</h4>
+                        <i id="multi-role-advanced-icon" class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="multi-role-advanced" class="advanced-content">
+                        <div class="form-group">
+                            <label for="multi-role-temperature">Temperature</label>
+                            <div class="range-control">
+                                <input type="range" id="multi-role-temperature" name="temperature" min="0" max="1"
+                                       step="0.1" value="0.9" oninput="updateRangeValue(this)">
+                                <span id="multi-role-temperature-value">0.9</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="multi-role-top-p">Top P</label>
+                            <div class="range-control">
+                                <input type="range" id="multi-role-top-p" name="top_p" min="0" max="1" step="0.05"
+                                       value="0.95" oninput="updateRangeValue(this)">
+                                <span id="multi-role-top-p-value">0.95</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="multi-role-top-k">Top K</label>
+                            <div class="range-control">
+                                <input type="range" id="multi-role-top-k" name="top_k" min="1" max="100" step="1"
+                                       value="50" oninput="updateRangeValue(this)">
+                                <span id="multi-role-top-k-value">50</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="multi-role-max-tokens">Max Tokens</label>
+                            <div class="range-control">
+                                <input type="range" id="multi-role-max-tokens" name="max_tokens" min="64" max="8192"
+                                       step="32" value="4096" oninput="updateRangeValue(this)">
+                                <span id="multi-role-max-tokens-value">4096</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="multi-role-loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>正在生成语音，请稍候...</p>
+                    <div class="timer-container">
+                        <i class="fas fa-clock timer-icon"></i>
+                        <span id="multi-role-timer" class="timer-display">00:00:00</span>
+                    </div>
+                </div>
+                <div class="button-container">
+                    <button type="submit">
+                        <i class="fas fa-play"></i> 生成语音
+                    </button>
+                </div>
+            </form>
+            <div id="multi-role-result" class="result-container">
+                <h4>生成结果</h4>
+                <div id="multi-role-process-time" class="processing-time"></div>
+                <audio id="multi-role-audio" class="audio-player" controls autoplay></audio>
+                <div class="button-container" style="margin-top: 15px;">
+                    <button id="multi-role-download" class="download-btn">
+                        <i class="fas fa-download"></i> 下载音频
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
 </div>
 
 <footer>
@@ -768,7 +907,7 @@
 </footer>
 
 <script>
-    // 切换标签页（支持三个模块）
+    // 切换标签页（支持四个模块）
     function switchTab(tabName) {
         const tabs = document.querySelectorAll('.tab');
         const tabContents = document.querySelectorAll('.tab-content');
@@ -792,6 +931,9 @@
         // 若切换到角色克隆模块，则加载可用音频角色
         if (tabName === 'clone_role') {
             fetchAudioRoles();
+        }
+        if (tabName === 'multi_role') {
+            fetchMultiRoleSupported();
         }
     }
 
@@ -1071,6 +1213,68 @@
         }
     });
 
+    // 新增多角色语音合成表单提交处理
+    document.getElementById('multi-role-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const params = new URLSearchParams();
+        for (const [key, value] of formData.entries()) {
+            params.append(key, value);
+        }
+        // 确保 stream 参数正确传递
+        const streamCheckbox = document.getElementById('multi-role-stream');
+        params.set('stream', streamCheckbox && streamCheckbox.checked ? 'true' : 'false');
+
+        const loading = document.getElementById('multi-role-loading');
+        const result = document.getElementById('multi-role-result');
+        loading.style.display = 'block';
+        result.style.display = 'none';
+
+        const startTime = startTimer('multi-role');
+        const isStream = (params.get('stream') === 'true');
+        try {
+            if (isStream) {
+                // 流式请求：直接设置 audio 元素的 src
+                const audio = document.getElementById('multi-role-audio');
+                audio.src = '/multi_role_speak?' + params.toString();
+                audio.load();
+                audio.addEventListener('canplay', () => {
+                    stopTimer('multi-role', startTime);
+                    showAlert('multi-role', '语音生成成功（流式）', 'success');
+                    result.style.display = 'block';
+                }, {once: true});
+                audio.play().catch(err => console.error("Playback error:", err));
+                result.style.display = 'block';
+            } else {
+                // 非流式请求：使用 fetch 获取完整音频 blob
+                const response = await fetch('/multi_role_speak?' + params.toString(), {method: 'GET'});
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || '语音生成失败');
+                }
+                const blob = await response.blob();
+                stopTimer('multi-role', startTime);
+                showAlert('multi-role', '语音生成成功', 'success');
+                const audio = document.getElementById('multi-role-audio');
+                audio.src = URL.createObjectURL(blob);
+                const downloadBtn = document.getElementById('multi-role-download');
+                downloadBtn.onclick = function () {
+                    const link = document.createElement('a');
+                    link.href = audio.src;
+                    link.download = 'multi_role_voice.wav';
+                    link.click();
+                };
+                result.style.display = 'block';
+            }
+        } catch (error) {
+            stopTimer('multi-role', startTime);
+            showAlert('multi-role', `生成失败: ${error.message}`, 'error');
+        } finally {
+            loading.style.display = 'none';
+        }
+    });
+
+
     // 加载音频角色列表
     function fetchAudioRoles() {
         fetch('/audio_roles')
@@ -1091,6 +1295,32 @@
             })
             .catch(error => {
                 showAlert('clone-role', `加载音频角色失败: ${error.message}`, 'error');
+            });
+    }
+
+    // 获取多角色支持列表
+    function fetchMultiRoleSupported() {
+        fetch('/audio_roles')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('multi-role-supported');
+                if (data.success) {
+                    container.innerHTML = ''; // 清空原内容
+                    const list = document.createElement('div');
+                    list.className = 'multi-role-list';
+                    data.roles.forEach(role => {
+                        const item = document.createElement('div');
+                        item.className = 'multi-role-list-item';
+                        item.textContent = role.name;
+                        list.appendChild(item);
+                    });
+                    container.appendChild(list);
+                } else {
+                    container.innerHTML = '<p>加载角色失败</p>';
+                }
+            })
+            .catch(error => {
+                document.getElementById('multi-role-supported').innerHTML = '<p>加载角色失败</p>';
             });
     }
 
