@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Time      :2025/3/29 10:57
 # Author    :Hui Huang
-from typing import Optional, AsyncIterator
+from typing import Optional, AsyncIterator, List
 
 from sglang.srt.entrypoints.engine import Engine
 from sglang.srt.server_args import PortArgs, ServerArgs
@@ -18,6 +18,8 @@ class SglangGenerator(BaseLLM):
                  max_length: int = 32768,
                  gpu_memory_utilization: Optional[float] = None,
                  device: str = "cuda",
+                 stop_tokens: Optional[list[str]] = None,
+                 stop_token_ids: Optional[List[int]] = None,
                  **kwargs):
         engine_kwargs = dict(
             model_path=model_path,
@@ -37,6 +39,8 @@ class SglangGenerator(BaseLLM):
         super(SglangGenerator, self).__init__(
             tokenizer=model_path,
             max_length=max_length,
+            stop_tokens=stop_tokens,
+            stop_token_ids=stop_token_ids,
         )
 
     async def async_generate(
