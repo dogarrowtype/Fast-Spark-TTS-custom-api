@@ -16,12 +16,14 @@
 - 📱 **Lightweight Deployment**: Minimal dependencies, with rapid startup based on Flask and fastapi
 - 🎨 **Clean Interface**: Features a modern, standardized UI
 - 🔊 **Long Text Speech Synthesis**: Capable of synthesizing extended texts while maintaining consistent voice timbre
-- 🔄 **Streaming Text-to-Speech Support**: Enables real-time synthesis with simultaneous generation and playback, reducing waiting times and enhancing the interactive experience
+- 🔄 **Streaming Text-to-Speech Support**: Enables real-time synthesis with simultaneous generation and playback,
+  reducing waiting times and enhancing the interactive experience
+- 🎭 **Multi-Character Speech Synthesis**: Supports speech synthesis for multiple characters, suitable for script
+  dialogue synthesis.
 
 ## 🖼️ Example
 
-https://github.com/user-attachments/assets/42e36399-c1b7-40e1-908b-24cfa603a55f
-
+https://github.com/user-attachments/assets/ab7ca580-45b3-41ba-acfd-b2f68ff62948
 
 ## 🛠️ Quick Start
 
