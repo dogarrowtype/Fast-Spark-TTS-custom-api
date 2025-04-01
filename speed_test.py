@@ -38,7 +38,7 @@ generate_config = dict(
 
 async def run(
         model_path: str,
-        backend: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
+        backend: Literal["vllm", "llama-cpp", "sglang", "torch", "mlx-lm"] = "torch",
         device: Literal["cpu", "cuda", "auto"] | str = "auto"
 ):
     model_kwargs = {
@@ -84,4 +84,4 @@ async def run(
 
 
 if __name__ == '__main__':
-    asyncio.run(run(backend="sglang", model_path="Spark-TTS-0.5B", device="cuda"))
+    asyncio.run(run(backend="mlx-lm", model_path="../pretrained_models/Spark-TTS-0.5B", device="mps"))

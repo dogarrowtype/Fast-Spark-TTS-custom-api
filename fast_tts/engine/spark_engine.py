@@ -201,7 +201,7 @@ class AsyncSparkEngine(BaseEngine):
             llm_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
             tokenizer_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
             detokenizer_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
-            backend: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
+            backend: Literal["vllm", "llama-cpp", "sglang", "torch", "mlx-lm"] = "torch",
             wav2vec_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
             llm_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
             torch_dtype: Literal['float16', "bfloat16", 'float32', 'auto'] = "auto",

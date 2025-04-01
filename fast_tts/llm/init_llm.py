@@ -7,7 +7,7 @@ from .base_llm import BaseLLM
 from ..import_utils import (
     is_llama_cpp_available,
     is_vllm_available,
-    is_sglang_available
+    is_sglang_available, is_mlx_lm_available
 )
 from ..logger import get_logger
 
@@ -16,7 +16,7 @@ logger = get_logger()
 
 def initialize_llm(
         model_path: str,
-        backend: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
+        backend: Literal["vllm", "llama-cpp", "sglang", "torch", "mlx-lm"] = "torch",
         max_length: int = 32768,
         device: Literal["cpu", "cuda", "auto"] | str = "auto",
         attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
@@ -89,5 +89,17 @@ def initialize_llm(
             stop_tokens=stop_tokens,
             stop_token_ids=stop_token_ids,
             **kwargs)
+
+    elif backend == "mlx-lm":
+        if not is_mlx_lm_available():
+            raise ImportError("mlx-lm is not installed. Please install it with `pip install mlx-lm`.")
+        from .mlx_lm_generator import MlxLmGenerator
+        return MlxLmGenerator(
+            model_path=model_path,
+            max_length=max_length,
+            stop_tokens=stop_tokens,
+            stop_token_ids=stop_token_ids,
+            **kwargs)
+
     else:
         raise ValueError(f"Unknown backend: {backend}")
