@@ -418,8 +418,8 @@ if __name__ == '__main__':
     parser.add_argument("--model_path", type=str, required=True,
                         help="模型路径")
     parser.add_argument("--backend", type=str, required=True,
-                        choices=["llama-cpp", "vllm", "sglang", "torch"],
-                        help="引擎类型，如 llama-cpp、vllm、sglang 或 torch")
+                        choices=["llama-cpp", "vllm", "sglang", "torch", "mlx-lm"],
+                        help="引擎类型，如 llama-cpp、vllm、sglang、mlx-lm 或 torch")
     parser.add_argument("--llm_device", type=str, default="auto",
                         help="llm 设备，例如 cpu 或 cuda:0")
     parser.add_argument("--tokenizer_device", type=str, default="auto",

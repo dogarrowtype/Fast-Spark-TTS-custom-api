@@ -8,7 +8,7 @@
 
 ## ✨ 特性
 
-- 🚀 **多种后端加速**: 支持`vllm`、`sglang`、`llama cpp`多种加速策略
+- 🚀 **多种后端加速**: 支持`vllm`、`sglang`、`llama cpp`、`mlx-lm` 多种加速策略
 - 🎯 **高并发**: 采用动态批处理，极大提高并发
 - 🎛️ **全参数控制**: 音调、语速、音色温度等全方位可调
 - 📱 **轻量部署**: 最小依赖，基于Flask和fastapi快速启动
@@ -77,6 +77,16 @@ pip install -r requirements.txt
 
   具体参考链接：https://github.com/sgl-project/sglang
 
+
+- **mlx-lm**
+
+  在Apple Silicon上运行大型语言模型，适用于MacOS。
+    ```bash
+    pip install mlx-lm
+    ```
+  具体参考链接：https://github.com/ml-explore/mlx-lm
+
+
 ### 启动
 
 1. 克隆项目仓库
@@ -88,12 +98,12 @@ cd Fast-Spark-TTS
 
 2. 启动SparkTTS API服务
 
-`engine`可根据自己的环境，选择对应的推理引擎。目前支持`torch`、`vllm`、`sglang`、`llama-cpp`。
+`backend`可根据自己的环境，选择对应的推理引擎。目前支持`torch`、`vllm`、`sglang`、`llama-cpp`、`mlx-lm`。
 
 ```bash
 python server.py \
 --model_path Spark-TTS-0.5B \  # 可修改为自己的模型地址
---backend vllm \  # vllm、sglang、torch、llama-cpp任选一个
+--backend vllm \  # vllm、sglang、torch、llama-cpp、mlx-lm任选一个
 --llm_device cuda \
 --tokenizer_device cuda \
 --detokenizer_device cuda \
