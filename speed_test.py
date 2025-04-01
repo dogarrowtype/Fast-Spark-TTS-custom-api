@@ -38,7 +38,7 @@ generate_config = dict(
 
 async def run(
         model_path: str,
-        backend: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
+        backend: Literal["vllm", "llama-cpp", "sglang", "torch", "mlx-lm"] = "torch",
         device: Literal["cpu", "cuda", "auto"] | str = "auto"
 ):
     model_kwargs = {
