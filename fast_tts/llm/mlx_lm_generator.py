@@ -23,20 +23,22 @@ class MlxLmGenerator(BaseLLM):
         # Load the model and tokenizer
         self.model, tokenizer = load(model_path)
 
+        if stop_tokens:
+            [tokenizer.add_eos_token(token_id) for token_id in stop_tokens]
+
+        if stop_token_ids:
+            [tokenizer.add_eos_token(str(token_id)) for token_id in stop_token_ids]
+
         # Store the generate function for later use
         self.generate_fn = generate
         self.stream_generate_fn = stream_generate
 
         super(MlxLmGenerator, self).__init__(
-            tokenizer=model_path,
+            tokenizer=tokenizer,
             max_length=max_length,
             stop_tokens=stop_tokens,
             stop_token_ids=stop_token_ids,
         )
-
-    async def random_uid(self):
-        """Generate a random UUID for request tracking"""
-        return str(uuid.uuid4())
 
     async def async_generate(
             self,
