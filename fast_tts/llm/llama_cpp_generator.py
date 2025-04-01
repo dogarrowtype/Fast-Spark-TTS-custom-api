@@ -16,6 +16,7 @@ class LlamaCppGenerator(BaseLLM):
             self,
             model_path: str,
             max_length: int = 32768,
+            device: str = "cpu",
             stop_tokens: Optional[list[str]] = None,
             stop_token_ids: Optional[List[int]] = None,
             **kwargs
@@ -37,6 +38,7 @@ class LlamaCppGenerator(BaseLLM):
         self.model = Llama(
             model_file,
             n_ctx=max_length,
+            n_gpu_layers=0 if device == 'cpu' else -1,
             **kwargs
         )
         # 不使用llama cpp 的 tokenizer

@@ -52,6 +52,7 @@ def initialize_llm(
         return LlamaCppGenerator(
             model_path=model_path,
             max_length=max_length,
+            device=device,
             stop_tokens=stop_tokens,
             stop_token_ids=stop_token_ids,
             **kwargs)
