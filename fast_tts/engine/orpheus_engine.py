@@ -59,7 +59,7 @@ class AsyncOrpheusEngine(BaseEngine):
             cache_implementation=cache_implementation,
             batch_size=batch_size,
             seed=seed,
-            stop_token_ids=[49158],
+            stop_token_ids=[128258, 128262],
             **kwargs
         )
 
@@ -81,7 +81,7 @@ class AsyncOrpheusEngine(BaseEngine):
             raise ValueError(err_msg)
         if contains_chinese(text):
             logger.warning("请注意：OrpheusTTS 目前还不支持中文。")
-        prompt = f"<|audio|>{name}: {text}<|eot_id|><custom_token_4>"
+        prompt = f"<custom_token_3><|begin_of_text|>{name}: {text}<|eot_id|><custom_token_4><custom_token_5><custom_token_1>"
         return prompt
 
     async def _convert_to_audio(self, multiframe: list[int]) -> np.ndarray | None:
