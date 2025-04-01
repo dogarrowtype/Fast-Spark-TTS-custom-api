@@ -84,4 +84,4 @@ async def run(
 
 
 if __name__ == '__main__':
-    asyncio.run(run(backend="torch", model_path="park-TTS-0.5B", device="auto"))
+    asyncio.run(run(backend="sglang", model_path="Spark-TTS-0.5B", device="cuda"))
