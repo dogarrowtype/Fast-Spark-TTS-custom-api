@@ -25,7 +25,7 @@ class BaseEngine(ABC):
             llm_model_path: str,
             max_length: int = 32768,
             llm_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
-            backend: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
+            backend: Literal["vllm", "llama-cpp", "sglang", "torch", "mlx-lm"] = "torch",
             llm_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
             torch_dtype: Literal['float16', "bfloat16", 'float32', 'auto'] = "auto",
             llm_gpu_memory_utilization: Optional[float] = 0.6,

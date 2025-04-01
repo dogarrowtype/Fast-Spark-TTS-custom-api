@@ -25,7 +25,7 @@ class AsyncOrpheusEngine(BaseEngine):
             model_path: str,
             max_length: int = 8192,
             snac_path: Optional[str] = None,
-            llm_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
+            llm_device: Literal["cpu", "cuda", "mps", "auto", "mlx-lm"] | str = "auto",
             detokenizer_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
             backend: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
             llm_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
