@@ -32,7 +32,8 @@ class AsyncOrpheusEngine(BaseEngine):
             torch_dtype: Literal['float16', "bfloat16", 'float32', 'auto'] = "auto",
             llm_gpu_memory_utilization: Optional[float] = 0.8,  # snac模型显存暂用很小
             cache_implementation: Optional[str] = None,
-            batch_size: int = 32,
+            batch_size: int = 1,
+            llm_batch_size: int = 256,
             wait_timeout: float = 0.01,
             seed: int = 0,
             **kwargs
@@ -57,7 +58,7 @@ class AsyncOrpheusEngine(BaseEngine):
             torch_dtype=torch_dtype,
             llm_gpu_memory_utilization=llm_gpu_memory_utilization,
             cache_implementation=cache_implementation,
-            batch_size=batch_size,
+            llm_batch_size=llm_batch_size,
             seed=seed,
             stop_token_ids=[128258, 128262],
             **kwargs

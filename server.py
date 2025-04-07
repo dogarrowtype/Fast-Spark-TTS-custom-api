@@ -376,6 +376,7 @@ def build_app(args) -> FastAPI:
             llm_gpu_memory_utilization=args.llm_gpu_memory_utilization,
             torch_dtype=args.torch_dtype,
             batch_size=args.batch_size,
+            llm_batch_size=args.llm_batch_size,
             wait_timeout=args.wait_timeout,
             cache_implementation=args.cache_implementation,
             seed=args.seed
@@ -451,7 +452,8 @@ if __name__ == '__main__':
     parser.add_argument("--api_key", type=str, default=None,
                         help="设置接口访问限制：Api key")
     parser.add_argument("--seed", type=int, default=0, help="随机种子")
-    parser.add_argument("--batch_size", type=int, default=32, help="音频处理组件单批次处理的最大请求数。")
+    parser.add_argument("--batch_size", type=int, default=1, help="音频处理组件单批次处理的最大请求数。")
+    parser.add_argument("--llm_batch_size", type=int, default=256, help="LLM模块单批次处理的最大请求数。")
     parser.add_argument("--wait_timeout", type=float, default=0.01, help="动态批处理请求超时阈值，单位为秒。")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="服务监听地址")
     parser.add_argument("--port", type=int, default=8000, help="服务监听端口")

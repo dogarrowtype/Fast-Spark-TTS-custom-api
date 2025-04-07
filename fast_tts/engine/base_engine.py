@@ -171,7 +171,7 @@ class BaseEngine(Engine):
             torch_dtype: Literal['float16', "bfloat16", 'float32', 'auto'] = "auto",
             llm_gpu_memory_utilization: Optional[float] = 0.6,
             cache_implementation: Optional[str] = None,
-            batch_size: int = 32,
+            llm_batch_size: int = 256,
             seed: int = 0,
             stop_tokens: Optional[list[str]] = None,
             stop_token_ids: Optional[list[int]] = None,
@@ -186,13 +186,13 @@ class BaseEngine(Engine):
             torch_dtype=torch_dtype,
             gpu_memory_utilization=llm_gpu_memory_utilization,
             cache_implementation=cache_implementation,
-            batch_size=batch_size,
+            batch_size=llm_batch_size,
             seed=seed,
             stop_tokens=stop_tokens,
             stop_token_ids=stop_token_ids,
             **kwargs
         )
-        self._batch_size = batch_size
+        self._batch_size = llm_batch_size
 
     def list_roles(self) -> list[str]:
         raise NotImplementedError(f"List_roles not implemented for {self.__class__.__name__}")

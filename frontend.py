@@ -264,7 +264,7 @@ if __name__ == '__main__':
     logger.info("启动FastTTS前端服务")
     logger.info(f"Config: {args}")
 
-    r = httpx.get(f"{args.backend_url}/sample_rate", timeout=None)
+    r = httpx.get(f"{args.backend_url}/sample_rate", timeout=None, headers=get_headers())
     r.raise_for_status()
     result = r.json()
     SAMPLE_RATE = result["sample_rate"]
