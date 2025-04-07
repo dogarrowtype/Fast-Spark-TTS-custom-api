@@ -17,6 +17,8 @@ app = Flask(__name__)
 
 AUDIO_MAP = {}
 
+SAMPLE_RATE = 16000
+
 
 @app.route('/')
 def index():
@@ -51,8 +53,8 @@ def get_headers():
     return headers
 
 
-def create_wav_header(sample_rate=16000, bits_per_sample=16, channels=1):
-    byte_rate = sample_rate * channels * bits_per_sample // 8
+def create_wav_header(bits_per_sample=16, channels=1):
+    byte_rate = SAMPLE_RATE * channels * bits_per_sample // 8
     block_align = channels * bits_per_sample // 8
 
     data_size = 0
@@ -66,7 +68,7 @@ def create_wav_header(sample_rate=16000, bits_per_sample=16, channels=1):
         16,
         1,
         channels,
-        sample_rate,
+        SAMPLE_RATE,
         byte_rate,
         block_align,
         bits_per_sample,
@@ -261,5 +263,10 @@ if __name__ == '__main__':
 
     logger.info("启动FastTTS前端服务")
     logger.info(f"Config: {args}")
+
+    r = httpx.get(f"{args.backend_url}/sample_rate", timeout=None)
+    r.raise_for_status()
+    result = r.json()
+    SAMPLE_RATE = result["sample_rate"]
 
     app.run(host=args.host, port=args.port)

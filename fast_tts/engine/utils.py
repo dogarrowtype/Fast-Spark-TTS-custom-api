@@ -136,14 +136,14 @@ def parse_multi_speaker_text(text, speakers):
     解析文本，将文本分割为多个角色及其对应的台词。
 
     参数:
-      text (str): 待解析的文本，文本中各段台词前以 <角色名> 标识。
+      text (str): 待解析的文本，文本中各段台词前以 <role:角色名> 标识。
       speakers (list): 允许的角色名称列表，只有在列表中的角色会被解析。
 
     返回:
       list: 每个元素为一个字典，包含 'name'（角色名称）和 'text'（台词文本）。
     """
     # 使用正则表达式分割文本，其中 '([^>]+)' 捕获 < > 中的角色名
-    parts = re.split(r'<([^>]+)>', text)
+    parts = re.split(r'<role:([^>]+)>', text)
     result = []
 
     # 如果文本以 <角色名> 开始，则 parts[0] 可能为空

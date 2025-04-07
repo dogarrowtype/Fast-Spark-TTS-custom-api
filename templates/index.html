@@ -585,7 +585,7 @@
             <i class="fas fa-copy"></i> 声音克隆
         </button>
         <button class="tab" onclick="switchTab('clone_role')" data-tab="clone_role">
-            <i class="fas fa-user"></i> 角色克隆
+            <i class="fas fa-user"></i> 角色语音
         </button>
         <button class="tab" onclick="switchTab('multi_role')" data-tab="multi_role">
             <i class="fas fa-users"></i> 多角色合成
@@ -810,7 +810,7 @@
     <!-- 角色克隆 -->
     <div id="clone_role-tab" class="tab-content">
         <div class="card">
-            <h3>角色克隆</h3>
+            <h3>角色语音</h3>
             <div id="clone-role-alert" class="alert"></div>
             <form id="clone-role-form">
                 <div class="form-group">
@@ -907,7 +907,7 @@
                 <div class="form-group">
                     <label for="multi-role-text">输入文本</label>
                     <textarea id="multi-role-text" name="text"
-                              placeholder="请输入文本，格式示例：&lt;角色1&gt;你好，&lt;角色2&gt;早上好"
+                              placeholder="请输入文本，格式示例：&lt;role:角色1&gt;你好，&lt;role:角色2&gt;早上好"
                               required></textarea>
                 </div>
                 <div class="form-group">
@@ -1410,7 +1410,7 @@
                         // 添加点击事件，点击后在文本框中追加 <角色名>
                         item.addEventListener('click', () => {
                             const textarea = document.getElementById('multi-role-text');
-                            const roleTag = `<${role.name}>`;
+                            const roleTag = `<role:${role.name}>`;
                             if (textarea) {
                                 // 如果文本框已有内容且不以空格结束，先追加一个空格
                                 if (textarea.value && !textarea.value.endsWith(' ')) {

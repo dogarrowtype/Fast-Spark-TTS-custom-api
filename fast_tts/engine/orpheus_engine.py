@@ -25,9 +25,9 @@ class AsyncOrpheusEngine(BaseEngine):
             model_path: str,
             max_length: int = 8192,
             snac_path: Optional[str] = None,
-            llm_device: Literal["cpu", "cuda", "mps", "auto", "mlx-lm"] | str = "auto",
+            llm_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
             detokenizer_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
-            backend: Literal["vllm", "llama-cpp", "sglang", "torch"] = "torch",
+            backend: Literal["vllm", "llama-cpp", "sglang", "torch", "mlx-lm"] = "torch",
             llm_attn_implementation: Optional[Literal["sdpa", "flash_attention_2", "eager"]] = None,
             torch_dtype: Literal['float16', "bfloat16", 'float32', 'auto'] = "auto",
             llm_gpu_memory_utilization: Optional[float] = 0.8,  # snac模型显存暂用很小
@@ -41,7 +41,7 @@ class AsyncOrpheusEngine(BaseEngine):
         self.set_seed(seed)
         self.detokenizer = SnacDeTokenizer(
             snac_path if snac_path is not None else os.path.join(model_path, "snac"),
-            device=detokenizer_device,
+            device=self._auto_detect_device(detokenizer_device),
             batch_size=batch_size,
             wait_timeout=wait_timeout)
 
@@ -247,64 +247,3 @@ class AsyncOrpheusEngine(BaseEngine):
         final_audio = np.concatenate(audios, axis=0)
         return final_audio
 
-    async def clone_voice_stream_async(
-            self,
-            text: str,
-            reference_audio,
-            reference_text: Optional[str] = None,
-            temperature: float = 0.9,
-            top_k: int = 50,
-            top_p: float = 0.95,
-            max_tokens: int = 4096,
-            length_threshold: int = 50,
-            window_size: int = 50,
-            split_fn: Optional[Callable[[str], list[str]]] = None,
-            **kwargs) -> AsyncIterator[np.ndarray]:
-        raise NotImplementedError("Clone voice is not implemented for Orpheus engine.")
-
-    async def clone_voice_async(
-            self,
-            text: str,
-            reference_audio,
-            reference_text: Optional[str] = None,
-            temperature: float = 0.9,
-            top_k: int = 50,
-            top_p: float = 0.95,
-            max_tokens: int = 4096,
-            length_threshold: int = 50,
-            window_size: int = 50,
-            split_fn: Optional[Callable[[str], list[str]]] = None,
-            **kwargs) -> np.ndarray:
-        raise NotImplementedError("Clone voice is not implemented for Orpheus engine.")
-
-    async def generate_voice_stream_async(
-            self,
-            text: str,
-            gender: Optional[Literal["female", "male"]] = "female",
-            pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
-            speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
-            temperature: float = 0.9,
-            top_k: int = 50,
-            top_p: float = 0.95,
-            max_tokens: int = 4096,
-            length_threshold: int = 50,
-            window_size: int = 50,
-            split_fn: Optional[Callable[[str], list[str]]] = None,
-            **kwargs) -> AsyncIterator[np.ndarray]:
-        raise NotImplementedError("Generate voice is not implemented for Orpheus engine.")
-
-    async def generate_voice_async(
-            self,
-            text: str,
-            gender: Optional[Literal["female", "male"]] = "female",
-            pitch: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
-            speed: Optional[Literal["very_low", "low", "moderate", "high", "very_high"]] = "moderate",
-            temperature: float = 0.9,
-            top_k: int = 50,
-            top_p: float = 0.95,
-            max_tokens: int = 4096,
-            length_threshold: int = 50,
-            window_size: int = 50,
-            split_fn: Optional[Callable[[str], list[str]]] = None,
-            **kwargs) -> np.ndarray:
-        raise NotImplementedError("Generate voice is not implemented for Orpheus engine.")

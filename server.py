@@ -18,7 +18,7 @@ import soundfile as sf
 from starlette.middleware.cors import CORSMiddleware
 
 from fast_tts import (
-    AsyncSparkEngine,
+    AutoEngine,
     get_logger,
     setup_logging
 )
@@ -41,10 +41,6 @@ class TTSRequest(BaseModel):
     length_threshold: int = 50
     window_size: int = 50
     stream: bool = False
-    audio_chunk_duration: float = 1.0
-    max_audio_chunk_duration: float = 8.0
-    audio_chunk_size_scale_factor: float = 2.0
-    audio_chunk_overlap_duration: float = 0.1
 
 
 # 定义支持多种方式传入参考音频的请求协议
@@ -60,10 +56,6 @@ class CloneRequest(BaseModel):
     length_threshold: int = 50
     window_size: int = 50
     stream: bool = False
-    audio_chunk_duration: float = 1.0
-    max_audio_chunk_duration: float = 8.0
-    audio_chunk_size_scale_factor: float = 2.0
-    audio_chunk_overlap_duration: float = 0.1
 
 
 # 定义角色语音合成请求体
@@ -77,10 +69,6 @@ class SpeakRequest(BaseModel):
     length_threshold: int = 50
     window_size: int = 50
     stream: bool = False
-    audio_chunk_duration: float = 1.0
-    max_audio_chunk_duration: float = 8.0
-    audio_chunk_size_scale_factor: float = 2.0
-    audio_chunk_overlap_duration: float = 0.1
 
 
 # 定义多角色语音合成请求体
@@ -95,7 +83,7 @@ class MultiSpeakRequest(BaseModel):
     stream: bool = False
 
 
-async def load_roles(async_engine: AsyncSparkEngine, role_dir: Optional[str] = None):
+async def load_roles(async_engine: AutoEngine, role_dir: Optional[str] = None):
     # 加载已有的角色音频
     if role_dir is not None and os.path.exists(role_dir):
         logger.info(f"加载角色库：{role_dir}")
@@ -127,18 +115,25 @@ async def load_roles(async_engine: AsyncSparkEngine, role_dir: Optional[str] = N
         logger.warning("当前角色目录不存在，将无法使用角色克隆功能！")
 
 
-async def warmup_engine(async_engine: AsyncSparkEngine):
+async def warmup_engine(async_engine: AutoEngine):
     logger.info("Warming up...")
-    await async_engine.generate_voice_async(
-        text="测试音频",
-        max_tokens=128
-    )
+    if async_engine.engine_name == 'spark':
+        await async_engine.generate_voice_async(
+            text="测试音频",
+            max_tokens=128
+        )
+    elif async_engine.engine_name == 'orpheus':
+        await async_engine.speak_async(
+            name='tara',
+            text="test audio.",
+            max_tokens=128
+        )
     logger.info("Warmup complete.")
 
 
-async def process_audio_buffer(audio: np.ndarray):
+async def process_audio_buffer(audio: np.ndarray, sample_rate: int):
     audio_io = io.BytesIO()
-    sf.write(audio_io, audio, 16000, format="WAV", subtype="PCM_16")
+    sf.write(audio_io, audio, sample_rate, format="WAV", subtype="PCM_16")
     audio_io.seek(0)
     return audio_io
 
@@ -146,7 +141,10 @@ async def process_audio_buffer(audio: np.ndarray):
 # TTS 合成接口：接收 JSON 请求，返回合成语音（wav 格式）
 @router.post("/generate_voice")
 async def generate_voice(req: TTSRequest, raw_request: Request):
-    engine: AsyncSparkEngine = raw_request.app.state.engine
+    engine: AutoEngine = raw_request.app.state.engine
+    if engine.engine_name == 'orpheus':
+        logger.error("OrpheusTTS 暂不支持语音合成.")
+        raise HTTPException(status_code=500, detail="OrpheusTTS 暂不支持该功能.")
     if req.stream:
         async def generate_audio_stream():
             async for chunk in engine.generate_voice_stream_async(
@@ -159,11 +157,7 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
                     top_k=req.top_k,
                     max_tokens=req.max_tokens,
                     length_threshold=req.length_threshold,
-                    window_size=req.window_size,
-                    audio_chunk_duration=req.audio_chunk_duration,
-                    max_audio_chunk_duration=req.max_audio_chunk_duration,
-                    audio_chunk_size_scale_factor=req.audio_chunk_size_scale_factor,
-                    audio_chunk_overlap_duration=req.audio_chunk_overlap_duration,
+                    window_size=req.window_size
             ):
                 audio_bytes = chunk.tobytes()
                 yield audio_bytes
@@ -187,7 +181,7 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
             logger.warning(f"TTS 合成失败: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-        audio_io = await process_audio_buffer(audio)
+        audio_io = await process_audio_buffer(audio, sample_rate=engine.SAMPLE_RATE)
         return StreamingResponse(audio_io, media_type="audio/wav")
 
 
@@ -199,12 +193,25 @@ async def get_audio_bytes_from_url(url: str) -> bytes:
         return response.content
 
 
+@router.get("/sample_rate")
+async def sample_rate(raw_request: Request):
+    sr = raw_request.app.state.engine.SAMPLE_RATE
+    return JSONResponse(
+        content={
+            "success": True,
+            "sample_rate": sr
+        })
+
+
 # 克隆语音接口：接收 multipart/form-data，上传参考音频和其它表单参数
 @router.post("/clone_voice")
 async def clone_voice(
         req: CloneRequest, raw_request: Request
 ):
-    engine: AsyncSparkEngine = raw_request.app.state.engine
+    engine: AutoEngine = raw_request.app.state.engine
+    if engine.engine_name == 'orpheus':
+        logger.error("OrpheusTTS 暂不支持语音克隆.")
+        raise HTTPException(status_code=500, detail="OrpheusTTS 暂不支持该功能.")
 
     # 根据 reference_audio 内容判断读取方式
     if req.reference_audio.startswith("http://") or req.reference_audio.startswith("https://"):
@@ -233,11 +240,7 @@ async def clone_voice(
                     top_k=req.top_k,
                     max_tokens=req.max_tokens,
                     length_threshold=req.length_threshold,
-                    window_size=req.window_size,
-                    audio_chunk_duration=req.audio_chunk_duration,
-                    max_audio_chunk_duration=req.max_audio_chunk_duration,
-                    audio_chunk_size_scale_factor=req.audio_chunk_size_scale_factor,
-                    audio_chunk_overlap_duration=req.audio_chunk_overlap_duration,
+                    window_size=req.window_size
             ):
                 out_bytes = chunk.tobytes()
                 yield out_bytes
@@ -260,7 +263,7 @@ async def clone_voice(
             logger.warning("生成克隆语音失败：" + str(e))
             raise HTTPException(status_code=500, detail="生成克隆语音失败：" + str(e))
 
-        audio_io = await process_audio_buffer(audio)
+        audio_io = await process_audio_buffer(audio, sample_rate=engine.SAMPLE_RATE)
         return StreamingResponse(audio_io, media_type="audio/wav")
 
 
@@ -276,8 +279,8 @@ async def audio_roles(raw_request: Request):
 
 @router.post("/speak")
 async def speak(req: SpeakRequest, raw_request: Request):
-    engine: AsyncSparkEngine = raw_request.app.state.engine
-    if req.name not in engine.speakers:
+    engine: AutoEngine = raw_request.app.state.engine
+    if req.name not in engine.list_roles():
         err_msg = f"{req.name} 不在已有的角色列表中。"
         logger.warning(err_msg)
         raise HTTPException(status_code=500, detail=err_msg)
@@ -292,11 +295,7 @@ async def speak(req: SpeakRequest, raw_request: Request):
                     top_k=req.top_k,
                     max_tokens=req.max_tokens,
                     length_threshold=req.length_threshold,
-                    window_size=req.window_size,
-                    audio_chunk_duration=req.audio_chunk_duration,
-                    max_audio_chunk_duration=req.max_audio_chunk_duration,
-                    audio_chunk_size_scale_factor=req.audio_chunk_size_scale_factor,
-                    audio_chunk_overlap_duration=req.audio_chunk_overlap_duration,
+                    window_size=req.window_size
             ):
                 out_bytes = chunk.tobytes()
                 yield out_bytes
@@ -318,13 +317,13 @@ async def speak(req: SpeakRequest, raw_request: Request):
             logger.warning(f"TTS 合成失败: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-        audio_io = await process_audio_buffer(audio)
+        audio_io = await process_audio_buffer(audio, sample_rate=engine.SAMPLE_RATE)
         return StreamingResponse(audio_io, media_type="audio/wav")
 
 
 @router.post("/multi_speak")
 async def multi_speak(req: MultiSpeakRequest, raw_request: Request):
-    engine: AsyncSparkEngine = raw_request.app.state.engine
+    engine: AutoEngine = raw_request.app.state.engine
 
     if req.stream:
         async def generate_audio_stream():
@@ -356,7 +355,7 @@ async def multi_speak(req: MultiSpeakRequest, raw_request: Request):
             logger.warning(f"TTS 合成失败: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-        audio_io = await process_audio_buffer(audio)
+        audio_io = await process_audio_buffer(audio, sample_rate=engine.SAMPLE_RATE)
         return StreamingResponse(audio_io, media_type="audio/wav")
 
 
@@ -364,8 +363,9 @@ def build_app(args) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # 使用解析到的参数初始化全局 TTS 引擎
-        engine = AsyncSparkEngine(
+        engine = AutoEngine(
             model_path=args.model_path,
+            snac_path=args.snac_path,
             max_length=args.max_length,
             llm_device=args.llm_device,
             tokenizer_device=args.tokenizer_device,
@@ -380,7 +380,8 @@ def build_app(args) -> FastAPI:
             cache_implementation=args.cache_implementation,
             seed=args.seed
         )
-        await load_roles(engine, args.role_dir)
+        if engine.engine_name == 'spark':
+            await load_roles(engine, args.role_dir)
         await warmup_engine(engine)
         # 将 engine 保存到 app.state 中，方便路由中使用
         app.state.engine = engine
@@ -417,9 +418,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="FastTTS 后端")
     parser.add_argument("--model_path", type=str, required=True,
                         help="模型路径")
+
     parser.add_argument("--backend", type=str, required=True,
                         choices=["llama-cpp", "vllm", "sglang", "torch", "mlx-lm"],
                         help="引擎类型，如 llama-cpp、vllm、sglang、mlx-lm 或 torch")
+    parser.add_argument("--snac_path", type=str, default=None,
+                        help="OrpheusTTS 的snac模块地址")
     parser.add_argument("--llm_device", type=str, default="auto",
                         help="llm 设备，例如 cpu 或 cuda:0")
     parser.add_argument("--tokenizer_device", type=str, default="auto",
