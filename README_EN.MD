@@ -112,7 +112,7 @@ pip install -r requirements.txt
    --detokenizer_device cuda \
    --wav2vec_attn_implementation sdpa \
    --llm_attn_implementation sdpa \  # Recommended for torch engine acceleration
-   --torch_dtype "bfloat16" \   # For devices that do not support bfloat16, set as float32. Note: this model has issues with float16.
+   --torch_dtype "bfloat16" \   # For spark-tts models, devices that do not support bfloat16 can only be set to float32.
    --max_length 32768 \
    --llm_gpu_memory_utilization 0.6 \
    --host 0.0.0.0 \

@@ -109,7 +109,7 @@ python server.py \
 --detokenizer_device cuda \
 --wav2vec_attn_implementation sdpa \
 --llm_attn_implementation sdpa \  # 如果使用torch engine，最好开启加速
---torch_dtype "bfloat16" \   # 不支持bfloat16的设备，只能设置为float32.这个模型float16有问题
+--torch_dtype "bfloat16" \   # 对于spark-tts模型，不支持bfloat16的设备，只能设置为float32.
 --max_length 32768 \
 --llm_gpu_memory_utilization 0.6 \
 --host 0.0.0.0 \
