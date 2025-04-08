@@ -197,6 +197,9 @@ class AsyncOrpheusEngine(BaseEngine):
             split_fn=split_fn
         )
         prompts = [self.apply_prompt(name=name, text=seg) for seg in segments]
+        pre_buffer = np.array([], dtype=np.int16)
+        pre_buffer_size = self.SAMPLE_RATE * kwargs.get("audio_chunk_duration", 1.5)
+        started_playback = False
         for prompt in prompts:
             async for audio in self._speak_stream(
                     prompt=prompt,
@@ -206,7 +209,15 @@ class AsyncOrpheusEngine(BaseEngine):
                     max_tokens=max_tokens,
                     **kwargs
             ):
-                yield audio
+                if not started_playback:
+                    pre_buffer = np.concatenate([pre_buffer, audio], axis=0)
+                    if pre_buffer.shape[0] >= pre_buffer_size:
+                        started_playback = True
+                        yield pre_buffer
+                else:
+                    yield audio
+        if not started_playback:
+            yield pre_buffer
 
     async def speak_async(
             self,
@@ -247,4 +258,3 @@ class AsyncOrpheusEngine(BaseEngine):
         audios = await asyncio.gather(*tasks)
         final_audio = np.concatenate(audios, axis=0)
         return final_audio
-

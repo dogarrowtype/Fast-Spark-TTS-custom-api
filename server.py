@@ -2,19 +2,13 @@
 # Time      :2025/3/15 11:37
 # Author    :Hui Huang
 import argparse
-import base64
 import os
 from contextlib import asynccontextmanager
-from typing import Literal, Optional
+from typing import Optional
 
-import httpx
-import numpy as np
-from fastapi import FastAPI, HTTPException, Request, APIRouter
-from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel
-import io
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 import uvicorn
-import soundfile as sf
 from starlette.middleware.cors import CORSMiddleware
 
 from fast_tts import (
@@ -22,65 +16,10 @@ from fast_tts import (
     get_logger,
     setup_logging
 )
+from fast_tts.server.base_router import base_router
+from fast_tts.server.openai_router import openai_router
 
 logger = get_logger()
-
-router = APIRouter()
-
-
-# 定义 TTS 合成请求体（JSON 格式）
-class TTSRequest(BaseModel):
-    text: str
-    gender: Literal["female", "male"] = "female"
-    pitch: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
-    speed: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
-    temperature: float = 0.9
-    top_k: int = 50
-    top_p: float = 0.95
-    max_tokens: int = 4096
-    length_threshold: int = 50
-    window_size: int = 50
-    stream: bool = False
-
-
-# 定义支持多种方式传入参考音频的请求协议
-class CloneRequest(BaseModel):
-    text: str
-    # reference_audio 字段既可以是一个 URL，也可以是 base64 编码的音频数据
-    reference_audio: str
-    reference_text: Optional[str] = None
-    temperature: float = 0.9
-    top_k: int = 50
-    top_p: float = 0.95
-    max_tokens: int = 4096
-    length_threshold: int = 50
-    window_size: int = 50
-    stream: bool = False
-
-
-# 定义角色语音合成请求体
-class SpeakRequest(BaseModel):
-    name: str
-    text: str
-    temperature: float = 0.9
-    top_k: int = 50
-    top_p: float = 0.95
-    max_tokens: int = 4096
-    length_threshold: int = 50
-    window_size: int = 50
-    stream: bool = False
-
-
-# 定义多角色语音合成请求体
-class MultiSpeakRequest(BaseModel):
-    text: str
-    temperature: float = 0.9
-    top_k: int = 50
-    top_p: float = 0.95
-    max_tokens: int = 4096
-    length_threshold: int = 50
-    window_size: int = 50
-    stream: bool = False
 
 
 async def load_roles(async_engine: AutoEngine, role_dir: Optional[str] = None):
@@ -131,234 +70,6 @@ async def warmup_engine(async_engine: AutoEngine):
     logger.info("Warmup complete.")
 
 
-async def process_audio_buffer(audio: np.ndarray, sample_rate: int):
-    audio_io = io.BytesIO()
-    sf.write(audio_io, audio, sample_rate, format="WAV", subtype="PCM_16")
-    audio_io.seek(0)
-    return audio_io
-
-
-# TTS 合成接口：接收 JSON 请求，返回合成语音（wav 格式）
-@router.post("/generate_voice")
-async def generate_voice(req: TTSRequest, raw_request: Request):
-    engine: AutoEngine = raw_request.app.state.engine
-    if engine.engine_name == 'orpheus':
-        logger.error("OrpheusTTS 暂不支持语音合成.")
-        raise HTTPException(status_code=500, detail="OrpheusTTS 暂不支持该功能.")
-    if req.stream:
-        async def generate_audio_stream():
-            async for chunk in engine.generate_voice_stream_async(
-                    req.text,
-                    gender=req.gender,
-                    pitch=req.pitch,
-                    speed=req.speed,
-                    temperature=req.temperature,
-                    top_p=req.top_p,
-                    top_k=req.top_k,
-                    max_tokens=req.max_tokens,
-                    length_threshold=req.length_threshold,
-                    window_size=req.window_size
-            ):
-                audio_bytes = chunk.tobytes()
-                yield audio_bytes
-
-        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
-    else:
-        try:
-            audio = await engine.generate_voice_async(
-                req.text,
-                gender=req.gender,
-                pitch=req.pitch,
-                speed=req.speed,
-                temperature=req.temperature,
-                top_p=req.top_p,
-                top_k=req.top_k,
-                max_tokens=req.max_tokens,
-                length_threshold=req.length_threshold,
-                window_size=req.window_size,
-            )
-        except Exception as e:
-            logger.warning(f"TTS 合成失败: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-        audio_io = await process_audio_buffer(audio, sample_rate=engine.SAMPLE_RATE)
-        return StreamingResponse(audio_io, media_type="audio/wav")
-
-
-async def get_audio_bytes_from_url(url: str) -> bytes:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url)
-        if response.status_code != 200:
-            raise HTTPException(status_code=400, detail="无法从指定 URL 下载参考音频")
-        return response.content
-
-
-@router.get("/sample_rate")
-async def sample_rate(raw_request: Request):
-    sr = raw_request.app.state.engine.SAMPLE_RATE
-    return JSONResponse(
-        content={
-            "success": True,
-            "sample_rate": sr
-        })
-
-
-# 克隆语音接口：接收 multipart/form-data，上传参考音频和其它表单参数
-@router.post("/clone_voice")
-async def clone_voice(
-        req: CloneRequest, raw_request: Request
-):
-    engine: AutoEngine = raw_request.app.state.engine
-    if engine.engine_name == 'orpheus':
-        logger.error("OrpheusTTS 暂不支持语音克隆.")
-        raise HTTPException(status_code=500, detail="OrpheusTTS 暂不支持该功能.")
-
-    # 根据 reference_audio 内容判断读取方式
-    if req.reference_audio.startswith("http://") or req.reference_audio.startswith("https://"):
-        audio_bytes = await get_audio_bytes_from_url(req.reference_audio)
-    else:
-        try:
-            audio_bytes = base64.b64decode(req.reference_audio)
-        except Exception as e:
-            logger.warning("无效的 base64 音频数据: " + str(e))
-            raise HTTPException(status_code=400, detail="无效的 base64 音频数据: " + str(e))
-    # 利用 BytesIO 包装字节数据，然后使用 soundfile 读取为 numpy 数组
-    try:
-        bytes_io = io.BytesIO(audio_bytes)
-    except Exception as e:
-        logger.warning("读取参考音频失败: " + str(e))
-        raise HTTPException(status_code=400, detail="读取参考音频失败: " + str(e))
-
-    if req.stream:
-        async def generate_audio_stream():
-            async for chunk in engine.clone_voice_stream_async(
-                    text=req.text,
-                    reference_audio=bytes_io,
-                    reference_text=req.reference_text,
-                    temperature=req.temperature,
-                    top_p=req.top_p,
-                    top_k=req.top_k,
-                    max_tokens=req.max_tokens,
-                    length_threshold=req.length_threshold,
-                    window_size=req.window_size
-            ):
-                out_bytes = chunk.tobytes()
-                yield out_bytes
-
-        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
-    else:
-        try:
-            audio = await engine.clone_voice_async(
-                text=req.text,
-                reference_audio=bytes_io,
-                reference_text=req.reference_text,
-                temperature=req.temperature,
-                top_p=req.top_p,
-                top_k=req.top_k,
-                max_tokens=req.max_tokens,
-                length_threshold=req.length_threshold,
-                window_size=req.window_size,
-            )
-        except Exception as e:
-            logger.warning("生成克隆语音失败：" + str(e))
-            raise HTTPException(status_code=500, detail="生成克隆语音失败：" + str(e))
-
-        audio_io = await process_audio_buffer(audio, sample_rate=engine.SAMPLE_RATE)
-        return StreamingResponse(audio_io, media_type="audio/wav")
-
-
-@router.get("/audio_roles")
-async def audio_roles(raw_request: Request):
-    roles = raw_request.app.state.engine.list_roles()
-    return JSONResponse(
-        content={
-            "success": True,
-            "roles": roles
-        })
-
-
-@router.post("/speak")
-async def speak(req: SpeakRequest, raw_request: Request):
-    engine: AutoEngine = raw_request.app.state.engine
-    if req.name not in engine.list_roles():
-        err_msg = f"{req.name} 不在已有的角色列表中。"
-        logger.warning(err_msg)
-        raise HTTPException(status_code=500, detail=err_msg)
-
-    if req.stream:
-        async def generate_audio_stream():
-            async for chunk in engine.speak_stream_async(
-                    name=req.name,
-                    text=req.text,
-                    temperature=req.temperature,
-                    top_p=req.top_p,
-                    top_k=req.top_k,
-                    max_tokens=req.max_tokens,
-                    length_threshold=req.length_threshold,
-                    window_size=req.window_size
-            ):
-                out_bytes = chunk.tobytes()
-                yield out_bytes
-
-        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
-    else:
-        try:
-            audio = await engine.speak_async(
-                name=req.name,
-                text=req.text,
-                temperature=req.temperature,
-                top_p=req.top_p,
-                top_k=req.top_k,
-                max_tokens=req.max_tokens,
-                length_threshold=req.length_threshold,
-                window_size=req.window_size,
-            )
-        except Exception as e:
-            logger.warning(f"TTS 合成失败: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-        audio_io = await process_audio_buffer(audio, sample_rate=engine.SAMPLE_RATE)
-        return StreamingResponse(audio_io, media_type="audio/wav")
-
-
-@router.post("/multi_speak")
-async def multi_speak(req: MultiSpeakRequest, raw_request: Request):
-    engine: AutoEngine = raw_request.app.state.engine
-
-    if req.stream:
-        async def generate_audio_stream():
-            async for chunk in engine.multi_speak_stream_async(
-                    text=req.text,
-                    temperature=req.temperature,
-                    top_p=req.top_p,
-                    top_k=req.top_k,
-                    max_tokens=req.max_tokens,
-                    length_threshold=req.length_threshold,
-                    window_size=req.window_size
-            ):
-                out_bytes = chunk.tobytes()
-                yield out_bytes
-
-        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
-    else:
-        try:
-            audio = await engine.multi_speak_async(
-                text=req.text,
-                temperature=req.temperature,
-                top_p=req.top_p,
-                top_k=req.top_k,
-                max_tokens=req.max_tokens,
-                length_threshold=req.length_threshold,
-                window_size=req.window_size,
-            )
-        except Exception as e:
-            logger.warning(f"TTS 合成失败: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-        audio_io = await process_audio_buffer(audio, sample_rate=engine.SAMPLE_RATE)
-        return StreamingResponse(audio_io, media_type="audio/wav")
-
-
 def build_app(args) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -390,7 +101,8 @@ def build_app(args) -> FastAPI:
 
     app = FastAPI(lifespan=lifespan)
 
-    app.include_router(router)
+    app.include_router(base_router)
+    app.include_router(openai_router, prefix="/v1")
 
     app.add_middleware(
         CORSMiddleware,

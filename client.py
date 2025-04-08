@@ -123,5 +123,25 @@ def clone_voice_stream():
     p.terminate()
 
 
+def openai_speech():
+    """
+    openai 接口请求
+    Returns:
+
+    """
+    from openai import OpenAI
+
+    client = OpenAI(
+        base_url=f"{BASE_URL}/v1",
+        api_key="not-needed"  # 如果设置了api key，请传入
+    )
+    with client.audio.speech.with_streaming_response.create(
+            model="orpheus",
+            voice="tara",
+            input="Hey there guys. It's, <giggle> Tara here, and let me introduce you to Zac.. who seems to asleep. Zac, it's time to wakey-wakey!"
+    ) as response:
+        response.stream_to_file("output.mp3")
+
+
 if __name__ == "__main__":
     clone_voice_stream()
