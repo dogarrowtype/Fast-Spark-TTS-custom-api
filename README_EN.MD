@@ -2,63 +2,72 @@
 
 [中文](README.MD) | [English](README_EN.MD)
 
-> 🚀 **FastTTS** – Based on the SparkTTS model, this platform provides high-quality Chinese speech synthesis and
-> voice cloning services. With an easy-to-use web interface, you can effortlessly create natural and realistic human
-> voices to suit various scenarios.
+> 🚀 **FastTTS** – Based on models such as SparkTTS and OrpheusTTS, this platform provides high-quality Chinese speech
+> synthesis and voice cloning services. With a simple and user-friendly web interface, you can effortlessly create
+> natural
+> and realistic human voices to suit a wide range of scenarios.
+
+> If you find the project helpful, please consider giving it a star.
 
 ## ✨ Features
 
-- 🚀 **Multiple Backend Acceleration Options**: Supports acceleration strategies such as `vllm`, `sglang`, and
-  `llama cpp`
-- 🎯 **High Concurrency**: Utilizes dynamic batching to significantly boost concurrent processing
-- 🎛️ **Full Parameter Control**: Offers comprehensive adjustments for pitch, speech rate, voice timbre temperature, and
-  more
-- 📱 **Lightweight Deployment**: Minimal dependencies, with rapid startup based on Flask and fastapi
-- 🎨 **Clean Interface**: Features a modern, standardized UI
-- 🔊 **Long Text Speech Synthesis**: Capable of synthesizing extended texts while maintaining consistent voice timbre
-- 🔄 **Streaming Text-to-Speech Support**: Enables real-time synthesis with simultaneous generation and playback,
-  reducing waiting times and enhancing the interactive experience
-- 🎭 **Multi-Character Speech Synthesis**: Supports speech synthesis for multiple characters, suitable for script
-  dialogue synthesis.
+- 🚀 **Multiple Backend Acceleration**: Supports various acceleration strategies, including `vllm`, `sglang`,
+  `llama cpp`, and `mlx-lm`.
+- 🎯 **High Concurrency**: Uses dynamic batching to greatly improve concurrent processing.
+- 🎛️ **Full Parameter Control**: Offers comprehensive adjustments for pitch, speed, timbre temperature, and more.
+- 📱 **Lightweight Deployment**: Minimal dependencies with fast startup built on Flask and FastAPI.
+- 🎨 **Clean Interface**: Features a modern, standardized UI.
+- 🔊 **Long Text Speech Synthesis**: Capable of synthesizing long texts while maintaining consistent timbre.
+- 🔄 **Streaming Speech Synthesis Support**: Provides real-time speech synthesis that plays as it generates, reducing
+  wait times and enhancing interactive experiences.
+- 🎭 **Multi-Character Speech Synthesis**: Supports synthesis for multiple characters, which can be used for scripted
+  dialogues and more.
 
-## 🖼️ Example
+## 🖼️ Usage Example
 
-https://github.com/user-attachments/assets/ab7ca580-45b3-41ba-acfd-b2f68ff62948
+[View the usage example demo](https://github.com/user-attachments/assets/ab7ca580-45b3-41ba-acfd-b2f68ff62948)
 
 ## 🛠️ Quick Start
 
-### Requirements
+### System Requirements
 
 - Python 3.10+
 - Flask 2.0+
-- fastapi
-- vllm or sglang or llama-cpp
+- FastAPI
+- vllm **or** sglang **or** llama-cpp
 
-### Installing Dependencies
+### Download Weights
+
+|      Model      |                                     huggingface                                     |                                        modelscope                                         |                                       gguf                                       | 
+|:---------------:|:-----------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
+|  **Spark-TTS**  |    [SparkAudio/Spark-TTS-0.5B](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)    |    [SparkAudio/Spark-TTS-0.5B](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)    |    [SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)    |
+| **Orpheus-TTS** | [canopylabs/orpheus-3b-0.1-ft](https://huggingface.co/canopylabs/orpheus-3b-0.1-ft) | [canopylabs/orpheus-3b-0.1-ft](https://modelscope.cn/models/canopylabs/orpheus-3b-0.1-ft) | [orpheus-gguf](https://huggingface.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF) |
+
+### Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Inference Engine Installation
+#### Inference Engine Installation
 
-(Install one as needed; if using torch for inference, you can skip this step)
+*Install one of the following as needed. If you use Torch for inference, you can skip these additional setups.*
 
-- **vLLM**
-
-  The vllm version should be greater than `0.7.2`
+- **vLLM**  
+  (Ensure the vLLM version is greater than `0.7.2`.)
   ```bash
   pip install vllm
-  ```
-  For more details, please refer to: https://github.com/vllm-project/vllm
+  ```  
+  For details, refer to: https://github.com/vllm-project/vllm
 
 - **llama-cpp**
   ```bash
   pip install llama-cpp-python
-  ```
-  Convert the LLM weights to gguf format, save the file as `model.gguf`, and place it in the `LLM` directory. You can
-  refer to the following method for weight conversion. If quantization is needed, you can configure the parameters
-  accordingly.
+  ```  
+  You can download the pre-converted gguf weights from the [Download Weights](#download-weights) section. Place the
+  Spark-TTS weights in the subdirectory `LLM` and the Orpheus-TTS weights in the model directory. If you want to convert
+  them yourself, use the `convert_hf_to_gguf.py` script as follows:
+
   ```bash
   git clone https://github.com/ggml-org/llama.cpp.git
   
@@ -70,17 +79,19 @@ pip install -r requirements.txt
 - **sglang**
   ```bash
   pip install sglang
-  ```
-  For more details, please refer to: https://github.com/sgl-project/sglang
+  ```  
+  For more details, refer to: https://github.com/sgl-project/sglang
 
-### Downloading Weights
+- **mlx-lm**  
+  For running large language models on Apple Silicon (suitable for macOS):
+  ```bash
+  pip install mlx-lm
+  ```  
+  For more details, refer to: https://github.com/ml-explore/mlx-lm
 
-Weight download
-links: [huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B), [modelscope](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)
+### Starting the Service
 
-### Start
-
-1. **Clone the project repository**
+1. **Clone the Repository**
 
    ```bash
    git clone https://github.com/HuiResearch/Fast-Spark-TTS.git
@@ -89,33 +100,36 @@ links: [huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B), [modelsc
 
 2. **Start the SparkTTS API Service**
 
-   The engine can be chosen according to your environment; currently supported options include `torch`, `vllm`,
-   `sglang`, and `llama-cpp`.
+   The `backend` option can be selected based on your environment. Currently supported backends include `torch`, `vllm`,
+   `sglang`, `llama-cpp`, and `mlx-lm`.
+
    ```bash
    python server.py \
-   --model_path Spark-TTS-0.5B \
-   --backend vllm \
+   --model_path Spark-TTS-0.5B \  # Modify this to your model directory as needed
+   --backend vllm \  # Choose one: vllm, sglang, torch, llama-cpp, or mlx-lm
    --llm_device cuda \
    --tokenizer_device cuda \
    --detokenizer_device cuda \
    --wav2vec_attn_implementation sdpa \
+   --llm_attn_implementation sdpa \  # Recommended for torch engine acceleration
+   --torch_dtype "bfloat16" \   # For devices that do not support bfloat16, set as float32. Note: this model has issues with float16.
    --max_length 32768 \
    --llm_gpu_memory_utilization 0.6 \
    --host 0.0.0.0 \
    --port 8000
    ```
 
-3. **Start the Web Interface**
+3. **Start the Flask Web Interface**
 
+   *Flask Frontend Start Command:*
    ```bash
    python frontend.py \
-    --backend_url http://127.0.0.1:8000 \ 
-    --host 0.0.0.0 \ 
-    --port 7860
+   --backend_url http://127.0.0.1:8000 \  # Customize the backend URL as needed
+   --host 0.0.0.0 \ 
+   --port 8001
    ```
 
-4. **Access via your browser**
-
+   In your browser, navigate to:
    ```
    http://localhost:8001
    ```
@@ -124,38 +138,39 @@ links: [huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B), [modelsc
 
 ### Speech Synthesis
 
-1. Switch to the **Speech Synthesis** tab.
-2. Enter the text you wish to convert to speech.
-3. Adjust parameters such as gender, pitch, and speech rate.
-4. Click the **Generate Speech** button.
-5. Once generation is complete, play or download the audio.
+1. Switch to the "Speech Synthesis" tab.
+2. Enter the text you wish to convert into speech.
+3. Adjust parameters such as gender, pitch, and speed.
+4. Click the "Generate Speech" button.
+5. Once processing completes, you can play or download the generated audio.
 
 ### Voice Cloning
 
-1. Switch to the **Voice Cloning** tab.
+1. Switch to the "Voice Cloning" tab.
 2. Enter the target text.
-3. Upload the reference audio.
-4. Enter the corresponding text for the reference audio.
+3. Upload a reference audio file.
+4. Provide the corresponding text for the reference audio.
 5. Adjust the parameters.
-6. Click the **Clone Voice** button.
-7. Once cloning is complete, play or download the audio.
+6. Click the "Clone Voice" button.
+7. Once cloning is complete, you can play or download the audio.
 
 ### Character Cloning
 
-1. Switch to the **Character Cloning** tab.
+1. Switch to the "Character Cloning" tab.
 2. Enter the target text.
-3. Choose your desired character.
+3. Choose your preferred character.
 4. Adjust the parameters.
-5. Click the **Character Cloning** button.
-6. Once cloning is complete, play or download the audio.
+5. Click the "Character Cloning" button.
+6. After processing, you can play or download the generated audio.
 
 ## Inference Speed
 
-- GPU: `A800`
-- For testing parameters and evaluation methods, please refer to [speed_test.py](speed_test.py)
-- Both output audio length (audio len) and inference time (cost time) are measured in seconds.
-- The evaluation includes both long-text and short-text scenarios.
-- The official code has not been evaluated; if needed, please conduct your own tests.
+- **GPU:** `A800`
+- **Model:** `Spark-TTS-0.5B`
+- Testing parameters and evaluation methods can be found in [speed_test.py](speed_test.py).
+- Note: Both the output audio length (in seconds) and the inference time (in seconds) are measured in seconds.
+- Evaluations include both long text and short text scenarios.
+- The official code has not been benchmarked; please perform your own evaluations if necessary.
 
 |  Scenario  |  engine   | device | audio len | cost time |  RTF  |
 |:----------:|:---------:|:------:|:---------:|:---------:|:-----:|
@@ -170,12 +185,35 @@ links: [huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B), [modelsc
 
 ## Local Usage
 
-Usage instructions can be found in [inference.py].
+Example usage:
 
-For API deployment and repeated inference calls, it is recommended to use asynchronous (async) methods.
+```python
+from fast_tts import AutoEngine
+import asyncio
 
-**Note:** For backends like vllm and sglang, the first inference call might take longer, but subsequent calls will
-perform normally. For benchmarking, it is advised to warm up using the first data entry.
+
+async def main():
+    engine = AutoEngine(
+        model_path="checkpoints/Spark-TTS-0.5B",
+        max_length=32768,
+        backend="vllm"
+    )
+    wav = await engine.generate_voice_async(
+        text="This is a test text.",
+        gender="female",
+        temperature=0.9,
+        top_p=0.95,
+        top_k=50,
+        max_tokens=512
+    )
+    engine.write_audio(wav, "test.wav")
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
+For additional details, refer to [inference.py](inference.py).
 
 ## Reference
 
@@ -184,19 +222,19 @@ perform normally. For benchmarking, it is advised to warm up using the first dat
 ## ⚠️ Disclaimer
 
 This project provides a zero-shot voice cloning TTS model intended for academic research, educational purposes, and
-lawful applications such as personalized speech synthesis, assistive technologies, and linguistic studies.
+legitimate applications such as personalized speech synthesis, assistive technologies, and language research.
 
 Please note:
 
-- Do not use this model for unauthorized voice cloning, impersonation, fraud, scams, deepfakes, or any illegal
+- Do not use this model for unauthorized voice cloning, impersonation, fraud, scams, deep fakes, or any other illegal
   activities.
-- Ensure compliance with local laws, regulations, and ethical standards when using this model.
-- The developers assume no responsibility for any misuse of this model.
+- Ensure that you comply with local laws and ethical standards when using this model.
+- The developers are not responsible for any misuse of this model.
 
-This project advocates the responsible development and use of artificial intelligence and encourages the community to
-adhere to safety and ethical principles in AI research and applications.
+This project advocates responsible AI development and use, and encourages the community to uphold safety and ethical
+principles in AI research and applications.
 
-## License and Acknowledgments
+## License and Acknowledgements
 
 This project is built upon [Spark-TTS](https://github.com/SparkAudio/Spark-TTS) and is distributed under the same
 open-source license as SparkTTS. For details, please refer to the

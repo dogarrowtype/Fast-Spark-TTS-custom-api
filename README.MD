@@ -32,9 +32,10 @@ https://github.com/user-attachments/assets/ab7ca580-45b3-41ba-acfd-b2f68ff62948
 
 ### 下载权重
 
-权重下载地址：[huggingface](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)、[modelscope](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)
-
-GGUF量化权重下载：[SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)
+|     模型      |                                     huggingface                                     |                                        modelscope                                         |                                       gguf                                       | 
+|:-----------:|:-----------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
+|  Spark-TTS  |    [SparkAudio/Spark-TTS-0.5B](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)    |    [SparkAudio/Spark-TTS-0.5B](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)    |    [SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)    |
+| Orpheus-TTS | [canopylabs/orpheus-3b-0.1-ft](https://huggingface.co/canopylabs/orpheus-3b-0.1-ft) | [canopylabs/orpheus-3b-0.1-ft](https://modelscope.cn/models/canopylabs/orpheus-3b-0.1-ft) | [orpheus-gguf](https://huggingface.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF) |
 
 ### 安装依赖
 
@@ -58,8 +59,8 @@ pip install -r requirements.txt
     pip install llama-cpp-python
     ```
 
-  可以从 [SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)下载已经转好的gguf权重（本地机器推荐使用
-  `Q4_K_M`版本），将其下载放至`LLM`路径，或者使用`convert_hf_to_gguf.py`脚本转换权重。
+  可以从[下载权重](#下载权重)下载已经转好的gguf权重。spark-tts请将下载后的权重放至模型子目录`LLM`
+  下，orpheus-tts放至模型目录下。如果想要自行转换，请使用`convert_hf_to_gguf.py`脚本转换权重，操作方式如下：
 
     ```bash
     git clone https://github.com/ggml-org/llama.cpp.git
@@ -85,7 +86,6 @@ pip install -r requirements.txt
     pip install mlx-lm
     ```
   具体参考链接：https://github.com/ml-explore/mlx-lm
-
 
 ### 启动
 
@@ -116,7 +116,7 @@ python server.py \
 --port 8000
 ```
 
-3. 启动flask Web界面 (和gradio web 任选一个)
+3. 启动flask Web界面
 
 flask前端启动命令：
 
@@ -131,35 +131,6 @@ python frontend.py \
 
 ```
 http://localhost:8001
-```
-
-4. 启动gradio webui (和flask前端任选一个)
-
-启动`gradio`前，如果需要使用流式播放，请先安装`ffmpeg`，`windows`环境安装好之后配置环境变量，重启电脑再使用。
-
-如果不使用流式播放，也不想安装`ffmpeg`，请使用flask前端，或者参考[webui.py](webui.py)中的注释修改代码，取消流式播放。
-
-请注意，目前`gradio`拼接流式音频有问题，拼接部分会卡顿。
-
-然后安装`gradio`：
-
-```bash
-pip install gradio
-```
-
-启动`gradio`：
-
-```bash
-python frontend.py \
---backend_url http://127.0.0.1:8000 \  # 自定义后端地址
---host 0.0.0.0 \ 
---port 7860
-```
-
-在浏览器中访问gradio web ui
-
-```
-http://localhost:7860
 ```
 
 ## 🚀 使用指南
@@ -194,6 +165,7 @@ http://localhost:7860
 ## 推理速度
 
 - 显卡：`A800`
+- 模型：`Spark-TTS-0.5B`
 - 测试使用参数和评测方式可参考[speed_test.py](speed_test.py)
 - 输出音频长度(audio len)、推理耗时(cost time)单位都为秒。
 - 评测包括长文本和短文本场景。
@@ -212,11 +184,35 @@ http://localhost:7860
 
 ## 本地使用
 
-使用方法参考 [inference.py](inference.py)
+使用示例：
 
-接口部署，重复调用推理建议使用async异步方法。
+```python
+from fast_tts import AutoEngine
+import asyncio
 
-请注意：vllm，sglang等后端第一次推理会比较耗时，后面速度就会正常。如果评测，建议先使用第一条数据warmup。
+
+async def main():
+    engine = AutoEngine(
+        model_path="checkpoints/Spark-TTS-0.5B",
+        max_length=32768,
+        backend="vllm"
+    )
+    wav = await engine.generate_voice_async(
+        text="这是一条测试文本。",
+        gender="female",
+        temperature=0.9,
+        top_p=0.95,
+        top_k=50,
+        max_tokens=512
+    )
+    engine.write_audio(wav, "test.wav")
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
+具体使用方法参考 [inference.py](inference.py)
 
 ## Reference
 
