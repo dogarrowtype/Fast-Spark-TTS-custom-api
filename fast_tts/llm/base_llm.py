@@ -33,14 +33,20 @@ class BaseLLM:
         self.stop_token_ids = stop_token_ids
         self.stop_tokens = self.tokenizer.convert_ids_to_tokens(self.stop_token_ids)
 
-    def tokenize(self, text: str, max_length: int) -> List[int]:
+    def valid_max_tokens(self, max_tokens: int) -> int:
+        max_tokens = min(self.max_length - 256, max_tokens)
+        return max_tokens
+
+    def tokenize(self, text: str, max_tokens: int) -> List[int]:
+        src_len = self.max_length - max_tokens
+        src_len = max(src_len, 256)
         tokens = self.tokenizer.encode(
             text,
             add_special_tokens=False,
             truncation=False,
             padding=False
         )
-        tokens = tokens[-max_length:]
+        tokens = tokens[-src_len:]
         return tokens
 
     @classmethod

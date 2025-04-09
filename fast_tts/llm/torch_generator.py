@@ -93,7 +93,8 @@ class TorchGenerator(BaseLLM):
         Returns:
 
         """
-        input_ids = self.tokenize(prompt, self.max_length - max_tokens)
+        max_tokens = self.valid_max_tokens(max_tokens)
+        input_ids = self.tokenize(prompt, max_tokens)
 
         input_ids = torch.LongTensor([input_ids]).to(self.device)
         generated_ids = self.model.generate(
@@ -124,7 +125,8 @@ class TorchGenerator(BaseLLM):
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> AsyncIterator[str]:
-        input_ids = self.tokenize(prompt, self.max_length - max_tokens)
+        max_tokens = self.valid_max_tokens(max_tokens)
+        input_ids = self.tokenize(prompt, max_tokens)
 
         input_ids = torch.LongTensor([input_ids]).to(self.device)
         request_id = str(uuid.uuid4().hex)

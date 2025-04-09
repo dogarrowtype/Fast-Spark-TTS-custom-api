@@ -10,57 +10,209 @@ from pydantic import BaseModel, Field
 
 # 定义 TTS 合成请求体（JSON 格式）
 class TTSRequest(BaseModel):
-    text: str
-    gender: Literal["female", "male"] = "female"
-    pitch: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
-    speed: Literal["very_low", "low", "moderate", "high", "very_high"] = "moderate"
-    temperature: float = 0.9
-    top_k: int = 50
-    top_p: float = 0.95
-    max_tokens: int = 4096
-    length_threshold: int = 50
-    window_size: int = 50
-    stream: bool = False
+    text: str = Field(..., description="The text to generate audio for")
+    gender: Literal["female", "male"] = Field(
+        default="female",
+        description="Controls the gender of speech synthesis. Options are 'female' or 'male'."
+    )
+    pitch: Literal["very_low", "low", "moderate", "high", "very_high"] = Field(
+        default="moderate",
+        description="Specifies the pitch level for the generated audio. Valid options: 'very_low', 'low', 'moderate', 'high', 'very_high'."
+    )
+    speed: Literal["very_low", "low", "moderate", "high", "very_high"] = Field(
+        default="moderate",
+        description="Specifies the speed level of the audio output. Valid options: 'very_low', 'low', 'moderate', 'high', 'very_high'."
+    )
+    temperature: float = Field(
+        default=0.9,
+        description="Controls the randomness of the audio generation process. A higher temperature leads to more diverse outputs."
+    )
+    top_k: int = Field(
+        default=50,
+        description="Limits the number of highest probability vocabulary tokens to consider during generation."
+    )
+    top_p: float = Field(
+        default=0.95,
+        description="Nucleus sampling parameter: only the top tokens with a cumulative probability of 'top_p' are considered."
+    )
+    max_tokens: int = Field(
+        default=4096,
+        description="The maximum number of tokens to generate in the output."
+    )
+    length_threshold: int = Field(
+        default=50,
+        description="The length threshold for text segmentation. If the input text exceeds this threshold, it will be split into multiple segments for synthesis."
+    )
+    window_size: int = Field(
+        default=50,
+        description="Specifies the window size of each segment when splitting the text. It defines how many tokens are included in each segment for synthesis."
+    )
+    stream: bool = Field(
+        default=False,
+        description="Determines whether the audio output should be streamed in real-time (True) or returned after complete generation (False)."
+    )
+    response_format: Literal["mp3", "opus", "aac", "flac", "wav", "pcm"] = Field(
+        default="mp3",
+        description=(
+            "The format in which to return audio. Supported formats: mp3, opus, aac, flac, wav, pcm. "
+            "Note: PCM returns raw 16-bit samples without headers and AAC is not currently supported."
+        )
+    )
 
 
 # 定义支持多种方式传入参考音频的请求协议
 class CloneRequest(BaseModel):
-    text: str
-    # reference_audio 字段既可以是一个 URL，也可以是 base64 编码的音频数据
-    reference_audio: str
-    reference_text: Optional[str] = None
-    temperature: float = 0.9
-    top_k: int = 50
-    top_p: float = 0.95
-    max_tokens: int = 4096
-    length_threshold: int = 50
-    window_size: int = 50
-    stream: bool = False
+    text: str = Field(
+        ...,
+        description="The text to generate audio for."
+    )
+    reference_audio: str = Field(
+        ...,
+        description=(
+            "A reference audio sample used for voice cloning. "
+            "This field accepts either a URL pointing to an audio file or base64 encoded audio data."
+        )
+    )
+    reference_text: Optional[str] = Field(
+        default=None,
+        description="Optional transcript or description corresponding to the reference audio."
+    )
+    temperature: float = Field(
+        default=0.9,
+        description="Controls the randomness of the audio generation process. "
+                    "Higher values lead to more variation in the generated audio."
+    )
+    top_k: int = Field(
+        default=50,
+        description="Limits the number of highest probability tokens considered during generation."
+    )
+    top_p: float = Field(
+        default=0.95,
+        description="Nucleus sampling parameter. Only tokens with a cumulative probability of 'top_p' are considered."
+    )
+    max_tokens: int = Field(
+        default=4096,
+        description="The maximum number of tokens that can be generated in the output."
+    )
+    length_threshold: int = Field(
+        default=50,
+        description="The text length threshold for segmentation. "
+                    "If the input text exceeds this threshold, it will be split into multiple segments for synthesis."
+    )
+    window_size: int = Field(
+        default=50,
+        description="Specifies the window size for each segment during text splitting. "
+                    "It determines the number of tokens included in each segment."
+    )
+    stream: bool = Field(
+        default=False,
+        description="Determines whether the audio output should be streamed in real-time (True) "
+                    "or returned after complete generation (False)."
+    )
+    response_format: Literal["mp3", "opus", "aac", "flac", "wav", "pcm"] = Field(
+        default="mp3",
+        description=(
+            "The format in which to return audio. Supported formats: mp3, opus, aac, flac, wav, pcm. "
+            "Note: PCM returns raw 16-bit samples without headers and AAC is not currently supported."
+        )
+    )
 
 
 # 定义角色语音合成请求体
 class SpeakRequest(BaseModel):
-    name: str
-    text: str
-    temperature: float = 0.9
-    top_k: int = 50
-    top_p: float = 0.95
-    max_tokens: int = 4096
-    length_threshold: int = 50
-    window_size: int = 50
-    stream: bool = False
+    name: str = Field(
+        ...,
+        description="The name of the voice character to be used for speech synthesis."
+    )
+    text: str = Field(
+        ...,
+        description="The text to generate audio for."
+    )
+    temperature: float = Field(
+        default=0.9,
+        description="Controls the randomness of the speech synthesis. A higher temperature produces more diverse outputs."
+    )
+    top_k: int = Field(
+        default=50,
+        description="Limits the sampling to the top 'k' most probable tokens during generation."
+    )
+    top_p: float = Field(
+        default=0.95,
+        description="Nucleus sampling threshold: only tokens with a cumulative probability up to 'top_p' are considered."
+    )
+    max_tokens: int = Field(
+        default=4096,
+        description="Specifies the maximum number of tokens to generate in the output."
+    )
+    length_threshold: int = Field(
+        default=50,
+        description="If the input text exceeds this token length threshold, it will be split into multiple segments for synthesis."
+    )
+    window_size: int = Field(
+        default=50,
+        description="Determines the window size for each text segment when performing segmentation on longer texts."
+    )
+    stream: bool = Field(
+        default=False,
+        description="Indicates whether the audio output should be streamed in real-time (True) or returned only after complete synthesis (False)."
+    )
+    response_format: Literal["mp3", "opus", "aac", "flac", "wav", "pcm"] = Field(
+        default="mp3",
+        description=(
+            "The format in which to return audio. Supported formats: mp3, opus, aac, flac, wav, pcm. "
+            "Note: PCM returns raw 16-bit samples without headers and AAC is not currently supported."
+        )
+    )
 
 
 # 定义多角色语音合成请求体
 class MultiSpeakRequest(BaseModel):
-    text: str
-    temperature: float = 0.9
-    top_k: int = 50
-    top_p: float = 0.95
-    max_tokens: int = 4096
-    length_threshold: int = 50
-    window_size: int = 50
-    stream: bool = False
+    text: str = Field(
+        ...,
+        description=(
+            "The text for multi-role audio synthesis. For sentences intended for a specific role, "
+            "please prefix the sentence with `<role:角色名>`. For example, `<role:tara> Hello, how are you?` "
+            "indicates that the sentence should be synthesized using the voice of the 'tara' character."
+        )
+    )
+    temperature: float = Field(
+        default=0.9,
+        description="Controls the randomness of the audio generation. Higher temperatures yield more diverse outputs."
+    )
+    top_k: int = Field(
+        default=50,
+        description="Limits the synthesis to the top 'k' highest probability tokens considered during generation."
+    )
+    top_p: float = Field(
+        default=0.95,
+        description="Nucleus sampling parameter: only tokens with a cumulative probability up to 'top_p' are considered."
+    )
+    max_tokens: int = Field(
+        default=4096,
+        description="Specifies the maximum number of tokens that can be generated in the output."
+    )
+    length_threshold: int = Field(
+        default=50,
+        description=(
+            "Defines the text length threshold for segmentation. If the input text exceeds this threshold, "
+            "it will be split into multiple segments for synthesis."
+        )
+    )
+    window_size: int = Field(
+        default=50,
+        description="Specifies the window size for each text segment when splitting longer texts."
+    )
+    stream: bool = Field(
+        default=False,
+        description="Indicates whether to stream the audio output in real-time (True) or to return it after complete synthesis (False)."
+    )
+    response_format: Literal["mp3", "opus", "aac", "flac", "wav", "pcm"] = Field(
+        default="mp3",
+        description=(
+            "The format in which to return audio. Supported formats: mp3, opus, aac, flac, wav, pcm. "
+            "Note: PCM returns raw 16-bit samples without headers and AAC is not currently supported."
+        )
+    )
 
 
 class ModelCard(BaseModel):

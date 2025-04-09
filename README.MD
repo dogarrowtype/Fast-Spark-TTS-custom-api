@@ -26,7 +26,6 @@ https://github.com/user-attachments/assets/ab7ca580-45b3-41ba-acfd-b2f68ff62948
 ### 环境要求
 
 - Python 3.10+
-- Flask 2.0+
 - fastapi
 - vllm 或 sglang 或 llama-cpp
 
@@ -116,21 +115,15 @@ python server.py \
 --port 8000
 ```
 
-3. 启动flask Web界面
-
-flask前端启动命令：
-
-```bash
-python frontend.py \
---backend_url http://127.0.0.1:8000 \  # 自定义后端地址
---host 0.0.0.0 \ 
---port 8001
-```
-
-在浏览器中访问flask前端
+在浏览器中访问页面
 
 ```
-http://localhost:8001
+http://localhost:8000
+```
+查看api文档
+
+```
+http://localhost:8000/docs
 ```
 
 ## 🚀 使用指南

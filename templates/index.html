@@ -397,7 +397,6 @@
             }
         }
 
-        /* 添加到样式表末尾 */
         .timer-container {
             margin-top: 15px;
             margin-bottom: 15px;
@@ -438,7 +437,6 @@
             font-weight: 500;
         }
 
-        /* 优化多角色支持列表样式 */
         .multi-role-list {
             display: flex;
             flex-wrap: wrap;
@@ -447,7 +445,7 @@
         }
 
         .multi-role-list-item {
-            background-color: #f1f3f4; /* Google 式浅灰 */
+            background-color: #f1f3f4;
             border: 1px solid #dadce0;
             border-radius: 20px;
             padding: 5px 15px;
@@ -461,102 +459,6 @@
         .multi-role-list-item:hover {
             background-color: #e8eaed;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .timer-container {
-            margin-top: 15px;
-            margin-bottom: 15px;
-            padding: 10px;
-            background-color: rgba(66, 133, 244, 0.1);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            color: var(--primary-color);
-            border: 1px solid rgba(66, 133, 244, 0.3);
-        }
-
-        .timer-icon {
-            margin-right: 10px;
-            font-size: 18px;
-        }
-
-        .timer-display {
-            font-family: 'Roboto Mono', monospace;
-            font-weight: 500;
-        }
-
-        .processing-time {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #5f6368;
-            text-align: center;
-            padding: 8px;
-            background-color: rgba(0, 0, 0, 0.03);
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-        }
-
-        .processing-time-highlight {
-            color: var(--primary-color);
-            font-weight: 500;
-        }
-
-        .switch-container {
-            display: inline-flex;
-            align-items: center;
-        }
-
-        .switch-container span {
-            line-height: 24px; /* 与开关高度一致 */
-        }
-
-        .custom-switch {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            width: 46px;
-            height: 24px;
-            margin-left: 10px;
-        }
-
-        .custom-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .custom-switch .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: 0.4s;
-            border-radius: 24px;
-        }
-
-        .custom-switch .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: 0.4s;
-            border-radius: 50%;
-        }
-
-        .custom-switch input:checked + .slider {
-            background-color: var(--primary-color);
-        }
-
-        .custom-switch input:checked + .slider:before {
-            transform: translateX(22px);
         }
     </style>
 </head>
@@ -628,15 +530,6 @@
                         <option value="high">快</option>
                         <option value="very_high">极快</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <div class="switch-container">
-                        <span>是否流式合成</span>
-                        <label class="custom-switch">
-                            <input type="checkbox" id="generate-stream" name="stream" value="true">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
                 </div>
                 <div class="advanced-options">
                     <div class="advanced-header" onclick="toggleAdvanced('generate-advanced')">
@@ -730,15 +623,6 @@
                         <p id="clone-file-name" class="file-name"></p>
                     </div>
                 </div>
-                <div class="form-group">
-                    <div class="switch-container">
-                        <span>是否流式合成</span>
-                        <label class="custom-switch">
-                            <input type="checkbox" id="clone-stream" name="stream" value="true">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
                 <div class="advanced-options">
                     <div class="advanced-header" onclick="toggleAdvanced('clone-advanced')">
                         <h4>生成参数设置</h4>
@@ -822,15 +706,6 @@
                     <select id="clone-role-select" name="role_id" required>
                         <option value="">加载中...</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <div class="switch-container">
-                        <span>是否流式合成</span>
-                        <label class="custom-switch">
-                            <input type="checkbox" id="clone-role-stream" name="stream" value="true">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
                 </div>
                 <div class="advanced-options">
                     <div class="advanced-header" onclick="toggleAdvanced('clone-role-advanced')">
@@ -916,15 +791,6 @@
                         <p>加载中...</p>
                     </div>
                 </div>
-                <div class="form-group">
-                    <div class="switch-container">
-                        <span>是否流式合成</span>
-                        <label class="custom-switch">
-                            <input type="checkbox" id="multi-role-stream" name="stream" value="true">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
                 <div class="advanced-options">
                     <div class="advanced-header" onclick="toggleAdvanced('multi-role-advanced')">
                         <h4>生成参数设置</h4>
@@ -991,16 +857,12 @@
             </div>
         </div>
     </div>
-
-
 </div>
-
 <footer>
     <div class="container">
         <p>© 2025 AI语音合成与克隆平台 | 高品质语音技术服务</p>
     </div>
 </footer>
-
 <script>
     // 切换标签页（支持四个模块）
     function switchTab(tabName) {
@@ -1076,62 +938,42 @@
         }, 5000);
     }
 
-
+    // 语音合成表单提交（始终采用非流式方式）
     document.getElementById('generate-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(this);
-        const params = new URLSearchParams();
-        for (const [key, value] of formData.entries()) {
-            params.append(key, value);
-        }
-        // 获取复选框的状态，确保 stream 参数正确传递
-        const streamCheckbox = document.getElementById('generate-stream');
-        params.set('stream', streamCheckbox && streamCheckbox.checked ? 'true' : 'false');
+        const data = Object.fromEntries(formData.entries());
+        data.response_format = "mp3";
 
         const loading = document.getElementById('generate-loading');
         const result = document.getElementById('generate-result');
         loading.style.display = 'block';
         result.style.display = 'none';
+
         const startTime = startTimer('generate');
-        const isStream = (params.get('stream') === 'true');
+
         try {
-            if (isStream) {
-                // 流式请求直接设置 audio 元素的 src，让浏览器自动处理流式播放
-                const audio = document.getElementById('generate-audio');
-                audio.src = '/generate_voice?' + params.toString();
-                audio.load();
-
-                // 添加事件监听器，在音频流可播放时停止计时
-                audio.addEventListener('canplay', () => {
-                    stopTimer('generate', startTime);
-                    showAlert('generate', '语音生成成功（流式）', 'success');
-                    result.style.display = 'block';
-                }, {once: true});
-
-                audio.play().catch(err => console.error("Playback error:", err));
-
-                result.style.display = 'block';
-            } else {
-                // 非流式则通过 fetch 获取完整 blob
-                const response = await fetch('/generate_voice?' + params.toString(), {method: 'GET'});
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || '语音生成失败');
-                }
-                const blob = await response.blob();
-                stopTimer('generate', startTime);
-                showAlert('generate', '语音生成成功', 'success');
-                const audio = document.getElementById('generate-audio');
-                audio.src = URL.createObjectURL(blob);
-                const downloadBtn = document.getElementById('generate-download');
-                downloadBtn.onclick = function () {
-                    const link = document.createElement('a');
-                    link.href = audio.src;
-                    link.download = 'generated_voice.wav';
-                    link.click();
-                };
-                result.style.display = 'block';
+            const response = await fetch('/generate_voice', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || '语音生成失败');
             }
+            const blob = await response.blob();
+            stopTimer('generate', startTime);
+            showAlert('generate', '语音生成成功', 'success');
+            const audio = document.getElementById('generate-audio');
+            audio.src = URL.createObjectURL(blob);
+            document.getElementById('generate-download').onclick = function () {
+                const link = document.createElement('a');
+                link.href = audio.src;
+                link.download = 'generated_voice.mp3';
+                link.click();
+            };
+            result.style.display = 'block';
         } catch (error) {
             stopTimer('generate', startTime);
             showAlert('generate', `生成失败: ${error.message}`, 'error');
@@ -1140,22 +982,7 @@
         }
     });
 
-    async function uploadReferenceAudio(file) {
-        const formData = new FormData();
-        formData.append('reference_audio', file);
-
-        const response = await fetch('/upload_reference_audio', { // 服务器端需要实现此接口
-            method: 'POST',
-            body: formData
-        });
-        if (!response.ok) {
-            throw new Error('参考音频上传失败');
-        }
-        const data = await response.json();
-        return data.audio_id;
-    }
-
-    // 声音克隆表单提交（GET请求，支持流式播放）
+    // 声音克隆表单提交（始终采用非流式方式）
     document.getElementById('clone-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const loading = document.getElementById('clone-loading');
@@ -1163,78 +990,60 @@
         loading.style.display = 'block';
         result.style.display = 'none';
 
-        const params = new URLSearchParams();
+        const data = {
+            text: document.getElementById('clone-text').value,
+            reference_text: document.getElementById('clone-reference-text').value,
+            response_format: "mp3",
+            temperature: document.getElementById('clone-temperature').value,
+            top_p: document.getElementById('clone-top-p').value,
+            top_k: document.getElementById('clone-top-k').value,
+            max_tokens: document.getElementById('clone-max-tokens').value
+        };
 
-        // 目标文本
-        const text = document.getElementById('clone-text').value;
-        params.append('text', text);
-
-        // 参考文本（如果有）
-        const referenceText = document.getElementById('clone-reference-text').value;
-        if (referenceText) {
-            params.append('reference_text', referenceText);
-        }
-
-        // 流式合成复选框（注意建议不同模块用不同ID）
-        const streamCheckbox = document.getElementById('clone-stream');
-        params.set('stream', streamCheckbox && streamCheckbox.checked ? 'true' : 'false');
-
-        // 先上传参考音频，获取文件标识
-        const audioFileInput = document.getElementById('clone-reference-audio');
-
-        if (audioFileInput.files && audioFileInput.files[0]) {
-            try {
-                const audioId = await uploadReferenceAudio(audioFileInput.files[0]);
-                params.append('audio_id', audioId);
-            } catch (err) {
-                console.error('文件上传错误:', err);
-                showAlert('clone', '参考音频上传失败', 'error');
-                loading.style.display = 'none';
-                return;
-            }
-        }
-
-        // 开始计时
-        const startTime = startTimer('clone');
-        const isStream = (params.get('stream') === 'true');
-
-        try {
-            if (isStream) {
-                // 流式请求：直接设置 audio 元素的 src
-                const audio = document.getElementById('clone-audio');
-                audio.src = '/clone_voice?' + params.toString();
-                audio.load();
-
-                // 添加事件监听器，在音频流可播放时停止计时
-                audio.addEventListener('canplay', () => {
-                    stopTimer('clone', startTime);
-                    showAlert('clone', '语音生成成功（流式）', 'success');
-                    result.style.display = 'block';
-                }, {once: true});
-
-                audio.play().catch(err => console.error("Playback error:", err));
-                result.style.display = 'block';
-            } else {
-                // 非流式请求：使用 fetch GET 请求获取完整音频 blob
-                const response = await fetch('/clone_voice?' + params.toString(), {method: 'GET'});
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || '声音克隆失败');
-                }
-                const blob = await response.blob();
-                stopTimer('clone', startTime);
-                showAlert('clone', '声音克隆成功', 'success');
-                const audio = document.getElementById('clone-audio');
-                audio.src = URL.createObjectURL(blob);
-                const downloadBtn = document.getElementById('clone-download');
-                downloadBtn.onclick = function () {
-                    const link = document.createElement('a');
-                    link.href = audio.src;
-                    link.download = 'cloned_voice.wav';
-                    link.click();
+        const fileInput = document.getElementById('clone-reference-audio');
+        if (fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            data.reference_audio = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const result = reader.result;
+                    const base64Index = result.indexOf("base64,");
+                    if (base64Index !== -1) {
+                        resolve(result.substring(base64Index + 7));
+                    } else {
+                        resolve(result);
+                    }
                 };
-                result.style.display = 'block';
+                reader.onerror = () => {
+                    reject(new Error("文件读取失败"));
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        const startTime = startTimer('clone');
+        try {
+            const response = await fetch('/clone_voice', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || '声音克隆失败');
             }
+            const blob = await response.blob();
+            stopTimer('clone', startTime);
+            showAlert('clone', '声音克隆成功', 'success');
+            const audio = document.getElementById('clone-audio');
+            audio.src = URL.createObjectURL(blob);
+            document.getElementById('clone-download').onclick = function () {
+                const link = document.createElement('a');
+                link.href = audio.src;
+                link.download = 'cloned_voice.mp3';
+                link.click();
+            };
+            result.style.display = 'block';
         } catch (error) {
             stopTimer('clone', startTime);
             showAlert('clone', `声音克隆失败: ${error.message}`, 'error');
@@ -1243,82 +1052,57 @@
         }
     });
 
-
-    // 角色克隆表单提交（支持流式和非流式请求）
+    // 角色克隆表单提交（始终采用非流式方式）
     document.getElementById('clone-role-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(this);
-        const params = new URLSearchParams();
-        for (const [key, value] of formData.entries()) {
-            params.append(key, value);
-        }
-        // 获取复选框状态，确保 stream 参数正确传递
-        const streamCheckbox = document.getElementById('clone-role-stream');
-        params.set('stream', streamCheckbox && streamCheckbox.checked ? 'true' : 'false');
+        const data = Object.fromEntries(formData.entries());
+        data.name = data.role_id;
+        delete data.role_id;
+        data.response_format = "mp3";
 
         const loading = document.getElementById('clone-role-loading');
         const result = document.getElementById('clone-role-result');
         loading.style.display = 'block';
         result.style.display = 'none';
-
-        // 开始计时
         const startTime = startTimer('clone-role');
-        const isStream = (params.get('stream') === 'true');
-        try {
-            if (isStream) {
-                // 流式请求：直接设置 audio 元素的 src
-                const audio = document.getElementById('clone-role-audio');
-                audio.src = '/clone_by_role?' + params.toString();
-                audio.load();
-                // 添加事件监听器，在音频流可播放时停止计时
-                audio.addEventListener('canplay', () => {
-                    stopTimer('clone-role', startTime);
-                    showAlert('clone-role', '语音生成成功（流式）', 'success');
-                    result.style.display = 'block';
-                }, {once: true});
 
-                audio.play().catch(err => console.error("Playback error:", err));
-                result.style.display = 'block';
-            } else {
-                // 非流式请求：通过 fetch 获取完整音频 blob
-                const response = await fetch('/clone_by_role?' + params.toString(), {method: 'GET'});
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || '角色克隆失败');
-                }
-                const blob = await response.blob();
-                stopTimer('clone-role', startTime);
-                showAlert('clone-role', '角色克隆成功', 'success');
-                const audio = document.getElementById('clone-role-audio');
-                audio.src = URL.createObjectURL(blob);
-                const downloadBtn = document.getElementById('clone-role-download');
-                downloadBtn.onclick = function () {
-                    const link = document.createElement('a');
-                    link.href = audio.src;
-                    link.download = 'cloned_voice.wav';
-                    link.click();
-                };
-                result.style.display = 'block';
+        try {
+            const response = await fetch('/speak', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || '角色语音生成失败');
             }
+            const blob = await response.blob();
+            stopTimer('clone-role', startTime);
+            showAlert('clone-role', '角色语音生成成功', 'success');
+            const audio = document.getElementById('clone-role-audio');
+            audio.src = URL.createObjectURL(blob);
+            document.getElementById('clone-role-download').onclick = function () {
+                const link = document.createElement('a');
+                link.href = audio.src;
+                link.download = 'role_voice.mp3';
+                link.click();
+            };
+            result.style.display = 'block';
         } catch (error) {
             stopTimer('clone-role', startTime);
-            showAlert('clone-role', `角色克隆失败: ${error.message}`, 'error');
+            showAlert('clone-role', `角色语音生成失败: ${error.message}`, 'error');
         } finally {
             loading.style.display = 'none';
         }
     });
 
-    // 新增多角色语音合成表单提交处理
+    // 多角色语音合成表单提交（始终采用非流式方式）
     document.getElementById('multi-role-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(this);
-        const params = new URLSearchParams();
-        for (const [key, value] of formData.entries()) {
-            params.append(key, value);
-        }
-        // 确保 stream 参数正确传递
-        const streamCheckbox = document.getElementById('multi-role-stream');
-        params.set('stream', streamCheckbox && streamCheckbox.checked ? 'true' : 'false');
+        const data = Object.fromEntries(formData.entries());
+        data.response_format = "mp3";
 
         const loading = document.getElementById('multi-role-loading');
         const result = document.getElementById('multi-role-result');
@@ -1326,41 +1110,28 @@
         result.style.display = 'none';
 
         const startTime = startTimer('multi-role');
-        const isStream = (params.get('stream') === 'true');
         try {
-            if (isStream) {
-                // 流式请求：直接设置 audio 元素的 src
-                const audio = document.getElementById('multi-role-audio');
-                audio.src = '/multi_role_speak?' + params.toString();
-                audio.load();
-                audio.addEventListener('canplay', () => {
-                    stopTimer('multi-role', startTime);
-                    showAlert('multi-role', '语音生成成功（流式）', 'success');
-                    result.style.display = 'block';
-                }, {once: true});
-                audio.play().catch(err => console.error("Playback error:", err));
-                result.style.display = 'block';
-            } else {
-                // 非流式请求：使用 fetch 获取完整音频 blob
-                const response = await fetch('/multi_role_speak?' + params.toString(), {method: 'GET'});
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || '语音生成失败');
-                }
-                const blob = await response.blob();
-                stopTimer('multi-role', startTime);
-                showAlert('multi-role', '语音生成成功', 'success');
-                const audio = document.getElementById('multi-role-audio');
-                audio.src = URL.createObjectURL(blob);
-                const downloadBtn = document.getElementById('multi-role-download');
-                downloadBtn.onclick = function () {
-                    const link = document.createElement('a');
-                    link.href = audio.src;
-                    link.download = 'multi_role_voice.wav';
-                    link.click();
-                };
-                result.style.display = 'block';
+            const response = await fetch('/multi_speak', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || '多角色语音合成失败');
             }
+            const blob = await response.blob();
+            stopTimer('multi-role', startTime);
+            showAlert('multi-role', '语音生成成功', 'success');
+            const audio = document.getElementById('multi-role-audio');
+            audio.src = URL.createObjectURL(blob);
+            document.getElementById('multi-role-download').onclick = function () {
+                const link = document.createElement('a');
+                link.href = audio.src;
+                link.download = 'multi_role_voice.mp3';
+                link.click();
+            };
+            result.style.display = 'block';
         } catch (error) {
             stopTimer('multi-role', startTime);
             showAlert('multi-role', `生成失败: ${error.message}`, 'error');
@@ -1368,7 +1139,6 @@
             loading.style.display = 'none';
         }
     });
-
 
     // 加载音频角色列表
     function fetchAudioRoles() {
@@ -1380,8 +1150,8 @@
                     select.innerHTML = '';
                     data.roles.forEach(role => {
                         const option = document.createElement('option');
-                        option.value = role.role_id;
-                        option.textContent = role.name;
+                        option.value = role;
+                        option.textContent = role;
                         select.appendChild(option);
                     });
                 } else {
@@ -1393,26 +1163,24 @@
             });
     }
 
-    // 获取多角色支持列表（优化后的UI展示，并支持点击插入角色标签）
+    // 获取多角色支持列表，并支持点击插入角色标签
     function fetchMultiRoleSupported() {
         fetch('/audio_roles')
             .then(response => response.json())
             .then(data => {
                 const container = document.getElementById('multi-role-supported');
                 if (data.success) {
-                    container.innerHTML = ''; // 清空原内容
+                    container.innerHTML = '';
                     const list = document.createElement('div');
                     list.className = 'multi-role-list';
                     data.roles.forEach(role => {
                         const item = document.createElement('div');
                         item.className = 'multi-role-list-item';
-                        item.textContent = role.name;
-                        // 添加点击事件，点击后在文本框中追加 <角色名>
+                        item.textContent = role;
                         item.addEventListener('click', () => {
                             const textarea = document.getElementById('multi-role-text');
-                            const roleTag = `<role:${role.name}>`;
+                            const roleTag = `<role:${role}>`;
                             if (textarea) {
-                                // 如果文本框已有内容且不以空格结束，先追加一个空格
                                 if (textarea.value && !textarea.value.endsWith(' ')) {
                                     textarea.value += ' ';
                                 }
@@ -1444,47 +1212,32 @@
     function startTimer(prefix) {
         const timerElement = document.getElementById(`${prefix}-timer`);
         let seconds = 0;
-
-        // 清除之前的计时器（如果存在）
         if (timerIntervals[prefix]) {
             clearInterval(timerIntervals[prefix]);
         }
-
-        // 重置计时器显示
         timerElement.textContent = '00:00:00';
-
-        // 开始新的计时器
         const startTime = new Date().getTime();
         timerIntervals[prefix] = setInterval(() => {
             seconds++;
             const hours = Math.floor(seconds / 3600);
             const minutes = Math.floor((seconds % 3600) / 60);
             const secs = seconds % 60;
-
             timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }, 1000);
-
-        // 返回开始时间，用于计算总处理时间
         return startTime;
     }
 
     function stopTimer(prefix, startTime) {
-        // 停止计时器
         if (timerIntervals[prefix]) {
             clearInterval(timerIntervals[prefix]);
             delete timerIntervals[prefix];
         }
-
-        // 计算总处理时间
         const endTime = new Date().getTime();
-        const totalTime = (endTime - startTime) / 1000; // 转换为秒
-
-        // 格式化处理时间
+        const totalTime = (endTime - startTime) / 1000;
         const hours = Math.floor(totalTime / 3600);
         const minutes = Math.floor((totalTime % 3600) / 60);
         const seconds = Math.floor(totalTime % 60);
         const milliseconds = Math.floor((totalTime - Math.floor(totalTime)) * 1000);
-
         let timeString = '';
         if (hours > 0) {
             timeString += `${hours}小时`;
@@ -1493,11 +1246,8 @@
             timeString += `${minutes}分`;
         }
         timeString += `${seconds}.${milliseconds.toString().padStart(3, '0')}秒`;
-
-        // 显示处理时间
         const timeElement = document.getElementById(`${prefix}-process-time`);
         timeElement.innerHTML = `处理耗时: <span class="processing-time-highlight">${timeString}</span>`;
-
         return timeString;
     }
 </script>

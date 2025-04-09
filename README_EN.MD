@@ -32,7 +32,6 @@
 ### System Requirements
 
 - Python 3.10+
-- Flask 2.0+
 - FastAPI
 - vllm **or** sglang **or** llama-cpp
 
@@ -119,20 +118,17 @@ pip install -r requirements.txt
    --port 8000
    ```
 
-3. **Start the Flask Web Interface**
+   Access the page in your browser
 
-   *Flask Frontend Start Command:*
-   ```bash
-   python frontend.py \
-   --backend_url http://127.0.0.1:8000 \  # Customize the backend URL as needed
-   --host 0.0.0.0 \ 
-   --port 8001
-   ```
+    ```
+    http://localhost:8000
+    ```
 
-   In your browser, navigate to:
-   ```
-   http://localhost:8001
-   ```
+   View the API documentation
+
+    ```
+    http://localhost:8000/docs
+    ```
 
 ## 🚀 User Guide
 

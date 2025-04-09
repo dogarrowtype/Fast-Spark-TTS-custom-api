@@ -49,7 +49,7 @@ class MlxLmGenerator(BaseLLM):
             top_k: int = 50,
             **kwargs
     ) -> str:
-
+        max_tokens = self.valid_max_tokens(max_tokens)
         result = self.generate_fn(
             self.model,
             self.tokenizer,
@@ -68,6 +68,6 @@ class MlxLmGenerator(BaseLLM):
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> AsyncIterator[str]:
-
+        max_tokens = self.valid_max_tokens(max_tokens)
         for response in self.stream_generate_fn(self.model, self.tokenizer, prompt, max_tokens=max_tokens):
             yield response.text

@@ -8,11 +8,11 @@ import io
 import httpx
 import numpy as np
 from fastapi import HTTPException, Request, APIRouter
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response, FileResponse
 from .protocol import TTSRequest, CloneRequest, SpeakRequest, MultiSpeakRequest
+from .utils.audio_writer import StreamingAudioWriter
 from ..engine import AutoEngine
 from ..logger import get_logger
-import soundfile as sf
 
 logger = get_logger()
 
@@ -22,11 +22,31 @@ base_router = APIRouter(
 )
 
 
-async def process_audio_buffer(audio: np.ndarray, sr: int):
-    audio_io = io.BytesIO()
-    sf.write(audio_io, audio, sr, format="WAV", subtype="PCM_16")
-    audio_io.seek(0)
-    return audio_io
+async def generate_audio_stream(generator, data, writer: StreamingAudioWriter, raw_request: Request):
+    async for chunk in generator(**data):
+        # Check if client is still connected
+        is_disconnected = raw_request.is_disconnected
+        if callable(is_disconnected):
+            is_disconnected = await is_disconnected()
+        if is_disconnected:
+            logger.info("Client disconnected, stopping audio generation")
+            break
+
+        audio = writer.write_chunk(chunk, finalize=False)
+        yield audio
+    yield writer.write_chunk(finalize=True)
+
+
+async def generate_audio(audio: np.ndarray, writer: StreamingAudioWriter):
+    output = writer.write_chunk(audio, finalize=False)
+    final = writer.write_chunk(finalize=True)
+    output = output + final
+    return output
+
+
+@base_router.get("/")
+async def get_web():
+    return FileResponse("templates/index.html")
 
 
 # TTS 合成接口：接收 JSON 请求，返回合成语音（wav 格式）
@@ -36,24 +56,46 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
     if engine.engine_name == 'orpheus':
         logger.error("OrpheusTTS 暂不支持语音合成.")
         raise HTTPException(status_code=500, detail="OrpheusTTS 暂不支持该功能.")
-    if req.stream:
-        async def generate_audio_stream():
-            async for chunk in engine.generate_voice_stream_async(
-                    req.text,
-                    gender=req.gender,
-                    pitch=req.pitch,
-                    speed=req.speed,
-                    temperature=req.temperature,
-                    top_p=req.top_p,
-                    top_k=req.top_k,
-                    max_tokens=req.max_tokens,
-                    length_threshold=req.length_threshold,
-                    window_size=req.window_size
-            ):
-                audio_bytes = chunk.tobytes()
-                yield audio_bytes
 
-        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
+    audio_writer = StreamingAudioWriter(req.response_format, sample_rate=engine.SAMPLE_RATE)
+    # Set content type based on format
+    content_type = {
+        "mp3": "audio/mpeg",
+        "opus": "audio/opus",
+        "aac": "audio/aac",
+        "flac": "audio/flac",
+        "wav": "audio/wav",
+        "pcm": "audio/pcm",
+    }.get(req.response_format, f"audio/{req.response_format}")
+
+    if req.stream:
+        data = dict(
+            text=req.text,
+            gender=req.gender,
+            pitch=req.pitch,
+            speed=req.speed,
+            temperature=req.temperature,
+            top_p=req.top_p,
+            top_k=req.top_k,
+            max_tokens=req.max_tokens,
+            length_threshold=req.length_threshold,
+            window_size=req.window_size
+        )
+        return StreamingResponse(
+            generate_audio_stream(
+                engine.generate_voice_stream_async,
+                data,
+                audio_writer,
+                raw_request
+            ),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename=speech.{req.response_format}",
+                "X-Accel-Buffering": "no",
+                "Cache-Control": "no-cache",
+                "Transfer-Encoding": "chunked",
+            },
+        )
     else:
         try:
             audio = await engine.generate_voice_async(
@@ -71,9 +113,16 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
         except Exception as e:
             logger.warning(f"TTS 合成失败: {e}")
             raise HTTPException(status_code=500, detail=str(e))
-
-        audio_io = await process_audio_buffer(audio, sr=engine.SAMPLE_RATE)
-        return StreamingResponse(audio_io, media_type="audio/wav")
+        headers = {
+            "Content-Disposition": f"attachment; filename=speech.{req.response_format}",
+            "Cache-Control": "no-cache",  # Prevent caching
+        }
+        audio_io = await generate_audio(audio, writer=audio_writer)
+        return Response(
+            audio_io,
+            media_type=content_type,
+            headers=headers,
+        )
 
 
 async def get_audio_bytes_from_url(url: str) -> bytes:
@@ -82,16 +131,6 @@ async def get_audio_bytes_from_url(url: str) -> bytes:
         if response.status_code != 200:
             raise HTTPException(status_code=400, detail="无法从指定 URL 下载参考音频")
         return response.content
-
-
-@base_router.get("/sample_rate")
-async def sample_rate(raw_request: Request):
-    sr = raw_request.app.state.engine.SAMPLE_RATE
-    return JSONResponse(
-        content={
-            "success": True,
-            "sample_rate": sr
-        })
 
 
 # 克隆语音接口：接收 multipart/form-data，上传参考音频和其它表单参数
@@ -120,23 +159,44 @@ async def clone_voice(
         logger.warning("读取参考音频失败: " + str(e))
         raise HTTPException(status_code=400, detail="读取参考音频失败: " + str(e))
 
-    if req.stream:
-        async def generate_audio_stream():
-            async for chunk in engine.clone_voice_stream_async(
-                    text=req.text,
-                    reference_audio=bytes_io,
-                    reference_text=req.reference_text,
-                    temperature=req.temperature,
-                    top_p=req.top_p,
-                    top_k=req.top_k,
-                    max_tokens=req.max_tokens,
-                    length_threshold=req.length_threshold,
-                    window_size=req.window_size
-            ):
-                out_bytes = chunk.tobytes()
-                yield out_bytes
+    audio_writer = StreamingAudioWriter(req.response_format, sample_rate=engine.SAMPLE_RATE)
+    # Set content type based on format
+    content_type = {
+        "mp3": "audio/mpeg",
+        "opus": "audio/opus",
+        "aac": "audio/aac",
+        "flac": "audio/flac",
+        "wav": "audio/wav",
+        "pcm": "audio/pcm",
+    }.get(req.response_format, f"audio/{req.response_format}")
 
-        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
+    if req.stream:
+        data = dict(
+            text=req.text,
+            reference_audio=bytes_io,
+            reference_text=req.reference_text,
+            temperature=req.temperature,
+            top_p=req.top_p,
+            top_k=req.top_k,
+            max_tokens=req.max_tokens,
+            length_threshold=req.length_threshold,
+            window_size=req.window_size
+        )
+        return StreamingResponse(
+            generate_audio_stream(
+                engine.clone_voice_stream_async,
+                data,
+                audio_writer,
+                raw_request
+            ),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename=speech.{req.response_format}",
+                "X-Accel-Buffering": "no",
+                "Cache-Control": "no-cache",
+                "Transfer-Encoding": "chunked",
+            },
+        )
     else:
         try:
             audio = await engine.clone_voice_async(
@@ -151,11 +211,18 @@ async def clone_voice(
                 window_size=req.window_size,
             )
         except Exception as e:
-            logger.warning("生成克隆语音失败：" + str(e))
-            raise HTTPException(status_code=500, detail="生成克隆语音失败：" + str(e))
-
-        audio_io = await process_audio_buffer(audio, sr=engine.SAMPLE_RATE)
-        return StreamingResponse(audio_io, media_type="audio/wav")
+            logger.warning(f"克隆语音失败: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        headers = {
+            "Content-Disposition": f"attachment; filename=speech.{req.response_format}",
+            "Cache-Control": "no-cache",  # Prevent caching
+        }
+        audio_io = await generate_audio(audio, writer=audio_writer)
+        return Response(
+            audio_io,
+            media_type=content_type,
+            headers=headers,
+        )
 
 
 @base_router.get("/audio_roles")
@@ -176,22 +243,43 @@ async def speak(req: SpeakRequest, raw_request: Request):
         logger.warning(err_msg)
         raise HTTPException(status_code=500, detail=err_msg)
 
-    if req.stream:
-        async def generate_audio_stream():
-            async for chunk in engine.speak_stream_async(
-                    name=req.name,
-                    text=req.text,
-                    temperature=req.temperature,
-                    top_p=req.top_p,
-                    top_k=req.top_k,
-                    max_tokens=req.max_tokens,
-                    length_threshold=req.length_threshold,
-                    window_size=req.window_size
-            ):
-                out_bytes = chunk.tobytes()
-                yield out_bytes
+    audio_writer = StreamingAudioWriter(req.response_format, sample_rate=engine.SAMPLE_RATE)
+    # Set content type based on format
+    content_type = {
+        "mp3": "audio/mpeg",
+        "opus": "audio/opus",
+        "aac": "audio/aac",
+        "flac": "audio/flac",
+        "wav": "audio/wav",
+        "pcm": "audio/pcm",
+    }.get(req.response_format, f"audio/{req.response_format}")
 
-        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
+    if req.stream:
+        data = dict(
+            name=req.name,
+            text=req.text,
+            temperature=req.temperature,
+            top_p=req.top_p,
+            top_k=req.top_k,
+            max_tokens=req.max_tokens,
+            length_threshold=req.length_threshold,
+            window_size=req.window_size
+        )
+        return StreamingResponse(
+            generate_audio_stream(
+                engine.speak_stream_async,
+                data,
+                audio_writer,
+                raw_request
+            ),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename=speech.{req.response_format}",
+                "X-Accel-Buffering": "no",
+                "Cache-Control": "no-cache",
+                "Transfer-Encoding": "chunked",
+            },
+        )
     else:
         try:
             audio = await engine.speak_async(
@@ -205,32 +293,60 @@ async def speak(req: SpeakRequest, raw_request: Request):
                 window_size=req.window_size,
             )
         except Exception as e:
-            logger.warning(f"TTS 合成失败: {e}")
+            logger.warning(f"角色语音合成失败: {e}")
             raise HTTPException(status_code=500, detail=str(e))
-
-        audio_io = await process_audio_buffer(audio, sr=engine.SAMPLE_RATE)
-        return StreamingResponse(audio_io, media_type="audio/wav")
+        headers = {
+            "Content-Disposition": f"attachment; filename=speech.{req.response_format}",
+            "Cache-Control": "no-cache",  # Prevent caching
+        }
+        audio_io = await generate_audio(audio, writer=audio_writer)
+        return Response(
+            audio_io,
+            media_type=content_type,
+            headers=headers,
+        )
 
 
 @base_router.post("/multi_speak")
 async def multi_speak(req: MultiSpeakRequest, raw_request: Request):
     engine: AutoEngine = raw_request.app.state.engine
 
-    if req.stream:
-        async def generate_audio_stream():
-            async for chunk in engine.multi_speak_stream_async(
-                    text=req.text,
-                    temperature=req.temperature,
-                    top_p=req.top_p,
-                    top_k=req.top_k,
-                    max_tokens=req.max_tokens,
-                    length_threshold=req.length_threshold,
-                    window_size=req.window_size
-            ):
-                out_bytes = chunk.tobytes()
-                yield out_bytes
+    audio_writer = StreamingAudioWriter(req.response_format, sample_rate=engine.SAMPLE_RATE)
+    # Set content type based on format
+    content_type = {
+        "mp3": "audio/mpeg",
+        "opus": "audio/opus",
+        "aac": "audio/aac",
+        "flac": "audio/flac",
+        "wav": "audio/wav",
+        "pcm": "audio/pcm",
+    }.get(req.response_format, f"audio/{req.response_format}")
 
-        return StreamingResponse(generate_audio_stream(), media_type="audio/wav")
+    if req.stream:
+        data = dict(
+            text=req.text,
+            temperature=req.temperature,
+            top_p=req.top_p,
+            top_k=req.top_k,
+            max_tokens=req.max_tokens,
+            length_threshold=req.length_threshold,
+            window_size=req.window_size
+        )
+        return StreamingResponse(
+            generate_audio_stream(
+                engine.multi_speak_stream_async,
+                data,
+                audio_writer,
+                raw_request
+            ),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename=speech.{req.response_format}",
+                "X-Accel-Buffering": "no",
+                "Cache-Control": "no-cache",
+                "Transfer-Encoding": "chunked",
+            },
+        )
     else:
         try:
             audio = await engine.multi_speak_async(
@@ -243,8 +359,15 @@ async def multi_speak(req: MultiSpeakRequest, raw_request: Request):
                 window_size=req.window_size,
             )
         except Exception as e:
-            logger.warning(f"TTS 合成失败: {e}")
+            logger.warning(f"多角色语音合成失败: {e}")
             raise HTTPException(status_code=500, detail=str(e))
-
-        audio_io = await process_audio_buffer(audio, sr=engine.SAMPLE_RATE)
-        return StreamingResponse(audio_io, media_type="audio/wav")
+        headers = {
+            "Content-Disposition": f"attachment; filename=speech.{req.response_format}",
+            "Cache-Control": "no-cache",  # Prevent caching
+        }
+        audio_io = await generate_audio(audio, writer=audio_writer)
+        return Response(
+            audio_io,
+            media_type=content_type,
+            headers=headers,
+        )

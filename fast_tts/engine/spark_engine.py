@@ -542,8 +542,8 @@ class AsyncSparkEngine(BaseEngine):
 
             yield processed['yield_audio']
             last_audio = processed['last_chunk_audio']
-
-        yield last_audio[-cross_fade_samples:]
+        if last_audio is not None:
+            yield last_audio[-cross_fade_samples:]
 
     async def add_speaker(self, name: str, audio, reference_text: Optional[str] = None):
         if name in self.speakers:
@@ -923,7 +923,8 @@ class AsyncSparkEngine(BaseEngine):
             yield (processed['yield_audio'] * 32767).astype(np.int16)
             last_audio = processed['last_chunk_audio']
 
-        yield (last_audio[-cross_fade_samples:] * 32767).astype(np.int16)
+        if last_audio is not None:
+            yield (last_audio[-cross_fade_samples:] * 32767).astype(np.int16)
 
         if return_acoustic_tokens:
             yield acoustic_tokens

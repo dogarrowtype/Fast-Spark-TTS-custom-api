@@ -49,8 +49,8 @@ class VllmGenerator(BaseLLM):
             top_k: int = 50,
             **kwargs):
         from vllm import SamplingParams
-
-        prompt_tokens = self.tokenize(prompt, self.max_length - max_tokens)
+        max_tokens = self.valid_max_tokens(max_tokens)
+        prompt_tokens = self.tokenize(prompt, max_tokens)
         inputs = {"prompt_token_ids": prompt_tokens}
         sampling_params = SamplingParams(
             n=1,

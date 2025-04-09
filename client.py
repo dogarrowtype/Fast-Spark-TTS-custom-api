@@ -23,9 +23,9 @@ def generate_voice():
     }
     response = requests.post(f"{BASE_URL}/generate_voice", json=payload)
     if response.status_code == 200:
-        with open("generate_voice.wav", "wb") as f:
+        with open("generate_voice.mp3", "wb") as f:
             f.write(response.content)
-        print("生成的音频已保存为 generate_voice.wav")
+        print("生成的音频已保存为 generate_voice.mp3")
     else:
         print("请求失败：", response.status_code, response.text)
 
@@ -55,9 +55,9 @@ def clone_with_base64():
     }
     response = requests.post(f"{BASE_URL}/clone_voice", json=payload)
     if response.status_code == 200:
-        with open("clone_voice.wav", "wb") as f:
+        with open("clone_voice.mp3", "wb") as f:
             f.write(response.content)
-        print("克隆的音频已保存为 clone_voice.wav")
+        print("克隆的音频已保存为 clone_voice.mp3")
     else:
         print("请求失败：", response.status_code, response.text)
 
@@ -97,7 +97,8 @@ def clone_voice_stream():
         "top_p": 0.95,
         "top_k": 50,
         "max_tokens": 2048,
-        "stream": True
+        "stream": True,
+        "response_format": 'wav'
     }
     response = requests.post(f"{BASE_URL}/clone_voice", json=payload, stream=True)
 

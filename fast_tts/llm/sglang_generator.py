@@ -52,7 +52,8 @@ class SglangGenerator(BaseLLM):
             top_k: int = 50,
             **kwargs
     ) -> str:
-        prompt_tokens = self.tokenize(prompt, self.max_length - max_tokens)
+        max_tokens = self.valid_max_tokens(max_tokens)
+        prompt_tokens = self.tokenize(prompt, max_tokens)
         obj = GenerateReqInput(
             input_ids=prompt_tokens,
             sampling_params={
@@ -89,7 +90,8 @@ class SglangGenerator(BaseLLM):
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> AsyncIterator[str]:
-        prompt_tokens = self.tokenize(prompt, self.max_length - max_tokens)
+        max_tokens = self.valid_max_tokens(max_tokens)
+        prompt_tokens = self.tokenize(prompt, max_tokens)
         obj = GenerateReqInput(
             input_ids=prompt_tokens,
             sampling_params={

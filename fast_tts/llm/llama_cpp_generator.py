@@ -58,7 +58,8 @@ class LlamaCppGenerator(BaseLLM):
             top_k: int = 50,
             **kwargs
     ) -> str:
-        prompt_tokens = self.tokenize(prompt, self.max_length - max_tokens)
+        max_tokens = self.valid_max_tokens(max_tokens)
+        prompt_tokens = self.tokenize(prompt, max_tokens)
         completion_tokens = []
         for token in self.model.generate(
                 prompt_tokens,
@@ -85,7 +86,8 @@ class LlamaCppGenerator(BaseLLM):
             top_p: float = 0.9,
             top_k: int = 50,
             **kwargs) -> AsyncIterator[str]:
-        prompt_tokens = self.tokenize(prompt, self.max_length - max_tokens)
+        max_tokens = self.valid_max_tokens(max_tokens)
+        prompt_tokens = self.tokenize(prompt, max_tokens)
         completion_tokens = []
         previous_texts = ""
         for token in self.model.generate(
