@@ -12,9 +12,52 @@ import torch
 from .base_engine import BaseEngine
 from ..audio import SnacDeTokenizer
 from ..logger import get_logger
-from .utils import contains_chinese, limit_concurrency
+from .utils import limit_concurrency
 
 logger = get_logger()
+
+LANG_MAP = {
+    "mandarin": {
+        "voices": ["长乐", "白芷"],
+        "tags": ["嬉笑", "轻笑", "呻吟", "大笑", "咳嗽", "抽鼻子", "咳"],
+        "default": "长乐"
+    },
+    "french": {
+        "voices": ["pierre", "amelie", "marie"],
+        "tags": ["chuckle", "cough", "gasp", "groan", "laugh", "sigh", "sniffle", "whimper", "yawn"],
+        "default": "pierre"
+    },
+    "german": {
+        "voices": ["jana", "thomas", "max"],
+        "tags": ["chuckle", "cough", "gasp", "groan", "laugh", "sigh", "sniffle", "yawn"],
+        "default": "jana"
+    },
+    "korean": {
+        "voices": ["유나", "준서"],
+        "tags": ["한숨", "헐", "헛기침", "훌쩍", "하품", "낄낄", "신음", "작은 웃음", "기침", "으르렁"],
+        "default": "유나"
+    },
+    "hindi": {
+        "voices": ["ऋतिका"],
+        "tags": [],
+        "default": "ऋतिका"
+    },
+    "spanish": {
+        "voices": ["javi", "sergio", "maria"],
+        "tags": ["groan", "chuckle", "gasp", "resoplido", "laugh", "yawn", "cough"],
+        "default": "javi"
+    },
+    "italian": {
+        "voices": ["pietro", "giulia", "carlo"],
+        "tags": ["sigh", "laugh", "cough", "sniffle", "groan", "yawn", "gemito", "gasp"],
+        "default": "pietro"
+    },
+    "english": {
+        "voices": ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"],
+        "tags": ["laugh", "chuckle", "sigh", "cough", "sniffle", "groan", "yawn", "gasp"],
+        "default": "tara"
+    }
+}
 
 
 class AsyncOrpheusEngine(BaseEngine):
@@ -24,6 +67,18 @@ class AsyncOrpheusEngine(BaseEngine):
             self,
             model_path: str,
             max_length: int = 8192,
+            lang: Literal[
+                "mandarin",
+                "french",
+                "german",
+                "korean",
+                "hindi",
+                "spanish",
+                "italian",
+                "spanish_italian",
+                "english",
+                None
+            ] = None,
             snac_path: Optional[str] = None,
             llm_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
             detokenizer_device: Literal["cpu", "cuda", "mps", "auto"] | str = "auto",
@@ -38,6 +93,7 @@ class AsyncOrpheusEngine(BaseEngine):
             seed: int = 0,
             **kwargs
     ):
+        self.lang = self._auto_detect_lang(model_path, lang)
         self.seed = seed
         self.set_seed(seed)
         self.detokenizer = SnacDeTokenizer(
@@ -45,8 +101,21 @@ class AsyncOrpheusEngine(BaseEngine):
             device=self._auto_detect_device(detokenizer_device),
             batch_size=batch_size,
             wait_timeout=wait_timeout)
+        if self.lang == "spanish_italian":
+            self.speakers = set(LANG_MAP["spanish"]['voices'] + LANG_MAP["italian"]['voices'])
+            self.speakers = list(self.speakers)
+            self.speakers.sort()
 
-        self.speakers = ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"]
+            self.tags = set(LANG_MAP["spanish"]['tags'] + LANG_MAP["italian"]['tags'])
+            self.tags = list(self.tags)
+            self.tags.sort()
+            self.default_speaker = LANG_MAP["spanish"]["default"]
+        else:
+            self.speakers = LANG_MAP[self.lang]["voices"]
+            self.tags = LANG_MAP[self.lang]["tags"]
+
+            self.default_speaker = LANG_MAP[self.lang]["default"]
+
         self._batch_size = batch_size
 
         super().__init__(
@@ -64,6 +133,58 @@ class AsyncOrpheusEngine(BaseEngine):
             **kwargs
         )
 
+    def _auto_detect_lang(
+            self,
+            model_path: str,
+            lang: Literal[
+                "mandarin",
+                "french",
+                "german",
+                "korean",
+                "hindi",
+                "spanish",
+                "italian",
+                "spanish_italian",
+                "english",
+                None
+            ] = "english"
+    ) -> str:
+        model_name = os.path.split(model_path)[-1]
+        if "zh" in model_name:
+            detect_lang = "mandarin"
+        elif "hi" in model_name:
+            detect_lang = "hindi"
+        elif "ko" in model_name:
+            detect_lang = "korean"
+        elif "fr" in model_name:
+            detect_lang = "french"
+        elif "de" in model_name:
+            detect_lang = "german"
+        elif "es_it" in model_name:
+            detect_lang = "spanish_italian"
+        else:
+            detect_lang = None
+
+        if lang is not None:
+            if detect_lang is not None and detect_lang != lang:
+                if lang in ["spanish", "italian"] and detect_lang == "spanish_italian":
+                    pass
+                else:
+                    logger.warning(
+                        f"{model_name} detected language is {detect_lang}, but you set `lang` to {lang}. `lang` will be corrected to `{detect_lang}`.")
+                    lang = detect_lang
+            elif detect_lang is None:
+                logger.info(f"`lang` will be set to `{lang}`.")
+        else:
+            if detect_lang is None:
+                logger.warning(
+                    f"`lang` will be set to `english`.")
+                lang = "english"
+            else:
+                logger.info(f"{model_name} detected language is {detect_lang}. `lang` will be set to `{detect_lang}`")
+                lang = detect_lang
+        return lang
+
     def list_roles(self) -> list[str]:
         roles = list(self.speakers)
         roles.sort()
@@ -75,13 +196,11 @@ class AsyncOrpheusEngine(BaseEngine):
             name: Optional[str] = None
     ):
         if name is None:
-            name = "tara"
+            name = self.default_speaker
         if name not in self.speakers:
-            err_msg = f"{name} 角色不存在。"
+            err_msg = f"{name} is not in the currently supported speaker list. Currently supported speakers are: {', '.join(self.speakers)}"
             logger.error(err_msg)
             raise ValueError(err_msg)
-        if contains_chinese(text):
-            logger.warning("请注意：OrpheusTTS 目前还不支持中文。")
         prompt = f"<custom_token_3><|begin_of_text|>{name}: {text}<|eot_id|><custom_token_4><custom_token_5><custom_token_1>"
         return prompt
 
@@ -126,6 +245,7 @@ class AsyncOrpheusEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             **kwargs
     ) -> AsyncIterator[np.ndarray]:
@@ -138,6 +258,7 @@ class AsyncOrpheusEngine(BaseEngine):
                 temperature=temperature,
                 top_p=top_p,
                 top_k=top_k,
+                repetition_penalty=repetition_penalty,
                 **kwargs
         ):
             audio_ids = pattern.findall(text_token)
@@ -162,6 +283,7 @@ class AsyncOrpheusEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             **kwargs) -> np.ndarray:
         buffer = []
@@ -170,6 +292,7 @@ class AsyncOrpheusEngine(BaseEngine):
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
+                repetition_penalty=repetition_penalty,
                 max_tokens=max_tokens,
                 **kwargs
         ):
@@ -183,6 +306,7 @@ class AsyncOrpheusEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -206,6 +330,7 @@ class AsyncOrpheusEngine(BaseEngine):
                     temperature=temperature,
                     top_k=top_k,
                     top_p=top_p,
+                    repetition_penalty=repetition_penalty,
                     max_tokens=max_tokens,
                     **kwargs
             ):
@@ -226,6 +351,7 @@ class AsyncOrpheusEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -238,6 +364,7 @@ class AsyncOrpheusEngine(BaseEngine):
             window_size=window_size,
             split_fn=split_fn
         )
+        print(segments)
         prompts = [self.apply_prompt(name=name, text=seg) for seg in segments]
 
         semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
@@ -249,6 +376,7 @@ class AsyncOrpheusEngine(BaseEngine):
                     temperature=temperature,
                     top_k=top_k,
                     top_p=top_p,
+                    repetition_penalty=repetition_penalty,
                     max_tokens=max_tokens,
                     **kwargs
                 )

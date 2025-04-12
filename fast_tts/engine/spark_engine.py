@@ -296,6 +296,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             **kwargs
     ) -> dict[str, torch.Tensor | str]:
@@ -305,6 +306,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
+            repetition_penalty=repetition_penalty,
             **kwargs
         )
         pred_semantic_tokens = [int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)]
@@ -355,6 +357,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -379,6 +382,7 @@ class AsyncSparkEngine(BaseEngine):
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
+                repetition_penalty=repetition_penalty,
                 max_tokens=max_tokens,
                 **kwargs
             )
@@ -446,6 +450,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -499,6 +504,7 @@ class AsyncSparkEngine(BaseEngine):
                     temperature=temperature,
                     top_p=top_p,
                     top_k=top_k,
+                    repetition_penalty=repetition_penalty,
                     **kwargs
             ):
                 pred_semantic_tokens = [
@@ -570,6 +576,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -589,6 +596,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
+            repetition_penalty=repetition_penalty,
             max_tokens=max_tokens,
             length_threshold=length_threshold,
             window_size=window_size,
@@ -604,6 +612,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -627,6 +636,7 @@ class AsyncSparkEngine(BaseEngine):
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
+                repetition_penalty=repetition_penalty,
                 max_tokens=max_tokens,
                 length_threshold=length_threshold,
                 window_size=window_size,
@@ -647,6 +657,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -664,6 +675,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
+            repetition_penalty=repetition_penalty,
             max_tokens=max_tokens,
             length_threshold=length_threshold,
             window_size=window_size,
@@ -680,6 +692,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -702,6 +715,7 @@ class AsyncSparkEngine(BaseEngine):
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
+                repetition_penalty=repetition_penalty,
                 max_tokens=max_tokens,
                 length_threshold=length_threshold,
                 window_size=window_size,
@@ -723,6 +737,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -751,6 +766,7 @@ class AsyncSparkEngine(BaseEngine):
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
+                repetition_penalty=repetition_penalty,
                 max_tokens=max_tokens,
                 **kwargs
             )
@@ -805,6 +821,7 @@ class AsyncSparkEngine(BaseEngine):
             temperature: float = 0.9,
             top_k: int = 50,
             top_p: float = 0.95,
+            repetition_penalty: float = 1.0,
             max_tokens: int = 4096,
             length_threshold: int = 50,
             window_size: int = 50,
@@ -869,6 +886,7 @@ class AsyncSparkEngine(BaseEngine):
                     temperature=temperature,
                     top_p=top_p,
                     top_k=top_k,
+                    repetition_penalty=repetition_penalty,
                     **kwargs
             ):
                 if acoustic_tokens is None:

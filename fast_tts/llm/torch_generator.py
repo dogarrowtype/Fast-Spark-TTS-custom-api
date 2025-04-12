@@ -77,6 +77,7 @@ class TorchGenerator(BaseLLM):
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs
     ) -> str:
         """
@@ -88,6 +89,7 @@ class TorchGenerator(BaseLLM):
             temperature:
             top_p:
             top_k:
+            repetition_penalty:
             **kwargs:
 
         Returns:
@@ -107,6 +109,7 @@ class TorchGenerator(BaseLLM):
                 temperature=temperature,
                 top_p=top_p,
                 top_k=top_k,
+                repetition_penalty=repetition_penalty,
                 do_sample=True,
                 cache_implementation=self.cache_implementation,
                 **kwargs
@@ -124,6 +127,7 @@ class TorchGenerator(BaseLLM):
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs) -> AsyncIterator[str]:
         max_tokens = self.valid_max_tokens(max_tokens)
         input_ids = self.tokenize(prompt, max_tokens)
@@ -150,6 +154,7 @@ class TorchGenerator(BaseLLM):
                 temperature=temperature,
                 top_p=top_p,
                 top_k=top_k,
+                repetition_penalty=repetition_penalty,
                 do_sample=True,
                 cache_implementation=self.cache_implementation,
                 **kwargs

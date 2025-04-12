@@ -4,6 +4,7 @@
 import asyncio
 from typing import Callable, Optional
 import regex
+import re
 from ..logger import get_logger
 
 logger = get_logger()
@@ -49,22 +50,9 @@ def remove_bracket(text):
     return text
 
 
-def replace_blank(text: str):
-    out_str = []
-    for i, c in enumerate(text):
-        if c == " ":
-            if ((text[i + 1].isascii() and text[i + 1] != " ") and
-                    (text[i - 1].isascii() and text[i - 1] != " ")):
-                out_str.append(c)
-        else:
-            out_str.append(c)
-    return "".join(out_str)
-
-
 def text_normalize(text: str) -> str:
     if contains_chinese(text):
         text = text.replace("\n", "")
-        text = replace_blank(text)
         text = replace_corner_mark(text)
         text = text.replace(".", "。")
         text = text.replace(" - ", "，")
@@ -94,6 +82,7 @@ def split_text(
     :param length_threshold: 长度阈值，超过这个值将进行切分
     :return: 切分后的文本片段列表
     """
+    text = text.strip()
     text = text_normalize(text)
     if len(tokenize_fn(text)) <= length_threshold:
         return [text]
@@ -126,9 +115,6 @@ def split_text(
     if current_segment:
         segments.append(current_segment)
     return [seg for seg in segments if not is_only_punctuation(seg)]
-
-
-import re
 
 
 def parse_multi_speaker_text(text, speakers):

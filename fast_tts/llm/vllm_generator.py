@@ -47,6 +47,7 @@ class VllmGenerator(BaseLLM):
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs):
         from vllm import SamplingParams
         max_tokens = self.valid_max_tokens(max_tokens)
@@ -58,6 +59,7 @@ class VllmGenerator(BaseLLM):
             top_p=top_p,
             top_k=top_k,
             max_tokens=max_tokens,
+            repetition_penalty=repetition_penalty,
             stop_token_ids=self.stop_token_ids,
             **kwargs)
         results_generator = self.model.generate(
@@ -73,6 +75,7 @@ class VllmGenerator(BaseLLM):
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs
     ) -> str:
         results_generator = await self._get_vllm_generator(
@@ -81,6 +84,7 @@ class VllmGenerator(BaseLLM):
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
+            repetition_penalty=repetition_penalty,
             **kwargs
         )
         final_res = None
@@ -100,6 +104,7 @@ class VllmGenerator(BaseLLM):
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs) -> AsyncIterator[str]:
         results_generator = await self._get_vllm_generator(
             prompt=prompt,
@@ -107,6 +112,7 @@ class VllmGenerator(BaseLLM):
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
+            repetition_penalty=repetition_penalty,
             **kwargs
         )
         previous_texts = ""

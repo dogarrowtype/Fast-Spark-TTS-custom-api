@@ -56,6 +56,7 @@ class LlamaCppGenerator(BaseLLM):
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs
     ) -> str:
         max_tokens = self.valid_max_tokens(max_tokens)
@@ -66,6 +67,7 @@ class LlamaCppGenerator(BaseLLM):
                 top_k=top_k,
                 top_p=top_p,
                 temp=temperature,
+                repeat_penalty=repetition_penalty,
                 **kwargs
         ):
             if token in self.stop_token_ids:
@@ -85,6 +87,7 @@ class LlamaCppGenerator(BaseLLM):
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs) -> AsyncIterator[str]:
         max_tokens = self.valid_max_tokens(max_tokens)
         prompt_tokens = self.tokenize(prompt, max_tokens)
@@ -95,6 +98,7 @@ class LlamaCppGenerator(BaseLLM):
                 top_k=top_k,
                 top_p=top_p,
                 temp=temperature,
+                repeat_penalty=repetition_penalty,
                 **kwargs
         ):
             if token in self.stop_token_ids:

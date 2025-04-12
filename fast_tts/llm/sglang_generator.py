@@ -50,6 +50,7 @@ class SglangGenerator(BaseLLM):
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs
     ) -> str:
         max_tokens = self.valid_max_tokens(max_tokens)
@@ -63,6 +64,7 @@ class SglangGenerator(BaseLLM):
                 "temperature": temperature,
                 "top_p": top_p,
                 "top_k": top_k,
+                "repetition_penalty": repetition_penalty,
                 **kwargs
             },
             stream=False,
@@ -89,6 +91,7 @@ class SglangGenerator(BaseLLM):
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs) -> AsyncIterator[str]:
         max_tokens = self.valid_max_tokens(max_tokens)
         prompt_tokens = self.tokenize(prompt, max_tokens)
@@ -101,6 +104,7 @@ class SglangGenerator(BaseLLM):
                 "temperature": temperature,
                 "top_p": top_p,
                 "top_k": top_k,
+                "repetition_penalty": repetition_penalty,
                 **kwargs
             },
             stream=True,

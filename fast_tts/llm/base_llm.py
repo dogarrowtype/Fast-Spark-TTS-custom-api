@@ -60,6 +60,7 @@ class BaseLLM:
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs
     ) -> str:
         raise NotImplementedError("generate method not implemented")
@@ -71,5 +72,6 @@ class BaseLLM:
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
+            repetition_penalty: float = 1.0,
             **kwargs) -> AsyncIterator[str]:
         ...

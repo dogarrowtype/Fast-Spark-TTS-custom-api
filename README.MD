@@ -31,10 +31,11 @@ https://github.com/user-attachments/assets/ab7ca580-45b3-41ba-acfd-b2f68ff62948
 
 ### 下载权重
 
-|     模型      |                                     huggingface                                     |                                        modelscope                                         |                                       gguf                                       | 
-|:-----------:|:-----------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
-|  Spark-TTS  |    [SparkAudio/Spark-TTS-0.5B](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)    |    [SparkAudio/Spark-TTS-0.5B](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)    |    [SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)    |
-| Orpheus-TTS | [canopylabs/orpheus-3b-0.1-ft](https://huggingface.co/canopylabs/orpheus-3b-0.1-ft) | [canopylabs/orpheus-3b-0.1-ft](https://modelscope.cn/models/canopylabs/orpheus-3b-0.1-ft) | [orpheus-gguf](https://huggingface.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF) |
+|            模型             |                                                                                                             huggingface                                                                                                              |                                        modelscope                                         |                                       gguf                                       |
+|:-------------------------:|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
+|         Spark-TTS         |                                                                            [SparkAudio/Spark-TTS-0.5B](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)                                                                             |    [SparkAudio/Spark-TTS-0.5B](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)    |    [SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)    | 
+|        Orpheus-TTS        |                                  [canopylabs/orpheus-3b-0.1-ft](https://huggingface.co/canopylabs/orpheus-3b-0.1-ft) & [hubertsiuzdak/snac_24khz](https://huggingface.co/hubertsiuzdak/snac_24khz)                                   | [canopylabs/orpheus-3b-0.1-ft](https://modelscope.cn/models/canopylabs/orpheus-3b-0.1-ft) | [orpheus-gguf](https://huggingface.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF) | 
+| Orpheus-TTS(Multilingual) | [orpheus-multilingual-research-release](https://huggingface.co/collections/canopylabs/orpheus-multilingual-research-release-67f5894cd16794db163786ba)  & [hubertsiuzdak/snac_24khz](https://huggingface.co/hubertsiuzdak/snac_24khz) |                                             -                                             |                                        -                                         |
 
 ### 安装依赖
 
@@ -120,6 +121,7 @@ python server.py \
 ```
 http://localhost:8000
 ```
+
 查看api文档
 
 ```
@@ -177,7 +179,7 @@ http://localhost:8000/docs
 
 ## 本地使用
 
-使用示例：
+1. SparkTTS使用示例：
 
 ```python
 from fast_tts import AutoEngine
@@ -205,7 +207,34 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-具体使用方法参考 [inference.py](inference.py)
+2. OrpheusTTS使用示例：
+
+目前效果不太稳定
+```python
+from fast_tts import AutoEngine
+import asyncio
+
+
+async def main():
+    engine = AutoEngine(
+        model_path="checkpoints/3b-zh-ft-research_release",
+        snac_path="checkpoints/snac_24khz",
+        max_length=8192,
+        backend="vllm"
+    )
+    wav = await engine.speak_async(
+        name="长乐",
+        text="我是长乐啦。",
+    )
+    engine.write_audio(wav, "test.wav")
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+OrpheusTTS模型可使用的音色 name 请参考：[orpheus_engine.py](fast_tts/engine/orpheus_engine.py)
+
+3. 具体使用方法参考 [inference.py](inference.py)
 
 ## Reference
 
