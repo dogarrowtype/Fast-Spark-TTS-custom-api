@@ -364,7 +364,6 @@ class AsyncOrpheusEngine(BaseEngine):
             window_size=window_size,
             split_fn=split_fn
         )
-        print(segments)
         prompts = [self.apply_prompt(name=name, text=seg) for seg in segments]
 
         semaphore = asyncio.Semaphore(self._batch_size)  # 限制并发数，避免超长文本卡死
