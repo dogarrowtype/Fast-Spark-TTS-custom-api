@@ -77,6 +77,7 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
             temperature=req.temperature,
             top_p=req.top_p,
             top_k=req.top_k,
+            repetition_penalty=req.repetition_penalty,
             max_tokens=req.max_tokens,
             length_threshold=req.length_threshold,
             window_size=req.window_size
@@ -106,6 +107,7 @@ async def generate_voice(req: TTSRequest, raw_request: Request):
                 temperature=req.temperature,
                 top_p=req.top_p,
                 top_k=req.top_k,
+                repetition_penalty=req.repetition_penalty,
                 max_tokens=req.max_tokens,
                 length_threshold=req.length_threshold,
                 window_size=req.window_size,
@@ -178,6 +180,7 @@ async def clone_voice(
             temperature=req.temperature,
             top_p=req.top_p,
             top_k=req.top_k,
+            repetition_penalty=req.repetition_penalty,
             max_tokens=req.max_tokens,
             length_threshold=req.length_threshold,
             window_size=req.window_size
@@ -206,6 +209,7 @@ async def clone_voice(
                 temperature=req.temperature,
                 top_p=req.top_p,
                 top_k=req.top_k,
+                repetition_penalty=req.repetition_penalty,
                 max_tokens=req.max_tokens,
                 length_threshold=req.length_threshold,
                 window_size=req.window_size,
@@ -261,6 +265,7 @@ async def speak(req: SpeakRequest, raw_request: Request):
             temperature=req.temperature,
             top_p=req.top_p,
             top_k=req.top_k,
+            repetition_penalty=req.repetition_penalty,
             max_tokens=req.max_tokens,
             length_threshold=req.length_threshold,
             window_size=req.window_size
@@ -288,6 +293,7 @@ async def speak(req: SpeakRequest, raw_request: Request):
                 temperature=req.temperature,
                 top_p=req.top_p,
                 top_k=req.top_k,
+                repetition_penalty=req.repetition_penalty,
                 max_tokens=req.max_tokens,
                 length_threshold=req.length_threshold,
                 window_size=req.window_size,
@@ -328,6 +334,7 @@ async def multi_speak(req: MultiSpeakRequest, raw_request: Request):
             temperature=req.temperature,
             top_p=req.top_p,
             top_k=req.top_k,
+            repetition_penalty=req.repetition_penalty,
             max_tokens=req.max_tokens,
             length_threshold=req.length_threshold,
             window_size=req.window_size
@@ -354,6 +361,7 @@ async def multi_speak(req: MultiSpeakRequest, raw_request: Request):
                 temperature=req.temperature,
                 top_p=req.top_p,
                 top_k=req.top_k,
+                repetition_penalty=req.repetition_penalty,
                 max_tokens=req.max_tokens,
                 length_threshold=req.length_threshold,
                 window_size=req.window_size,

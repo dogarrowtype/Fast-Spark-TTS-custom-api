@@ -35,6 +35,11 @@ class TTSRequest(BaseModel):
         default=0.95,
         description="Nucleus sampling parameter: only the top tokens with a cumulative probability of 'top_p' are considered."
     )
+    repetition_penalty: float = Field(
+        default=1.0,
+        description="Controls the repetition penalty applied to the generated text. "
+                      "Higher values penalize repeated words and phrases."
+    )
     max_tokens: int = Field(
         default=4096,
         description="The maximum number of tokens to generate in the output."
@@ -90,6 +95,11 @@ class CloneRequest(BaseModel):
         default=0.95,
         description="Nucleus sampling parameter. Only tokens with a cumulative probability of 'top_p' are considered."
     )
+    repetition_penalty: float = Field(
+        default=1.0,
+        description="Controls the repetition penalty applied to the generated text. "
+                    "Higher values penalize repeated words and phrases."
+    )
     max_tokens: int = Field(
         default=4096,
         description="The maximum number of tokens that can be generated in the output."
@@ -140,6 +150,11 @@ class SpeakRequest(BaseModel):
         default=0.95,
         description="Nucleus sampling threshold: only tokens with a cumulative probability up to 'top_p' are considered."
     )
+    repetition_penalty: float = Field(
+        default=1.0,
+        description="Controls the repetition penalty applied to the generated text. "
+                    "Higher values penalize repeated words and phrases."
+    )
     max_tokens: int = Field(
         default=4096,
         description="Specifies the maximum number of tokens to generate in the output."
@@ -186,6 +201,11 @@ class MultiSpeakRequest(BaseModel):
     top_p: float = Field(
         default=0.95,
         description="Nucleus sampling parameter: only tokens with a cumulative probability up to 'top_p' are considered."
+    )
+    repetition_penalty: float = Field(
+        default=1.0,
+        description="Controls the repetition penalty applied to the generated text. "
+                    "Higher values penalize repeated words and phrases."
     )
     max_tokens: int = Field(
         default=4096,

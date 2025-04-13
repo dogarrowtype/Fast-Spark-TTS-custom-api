@@ -198,7 +198,10 @@ async def main():
         temperature=0.9,
         top_p=0.95,
         top_k=50,
-        max_tokens=512
+        max_tokens=512,
+        repetition_penalty=1.0,  # 重复惩罚，如果大于1.0，降低重复token生成的概率。可避免长时间静音token生成
+        length_threshold=50,  # 长度阈值，长度大于该值的文本将被切分成多个片段合成，避免长文本合成漏音等问题
+        window_size=50,  # 长文本切分后的片段长度
     )
     engine.write_audio(wav, "test.wav")
 
@@ -210,6 +213,7 @@ if __name__ == '__main__':
 2. OrpheusTTS使用示例：
 
 目前效果不太稳定
+
 ```python
 from fast_tts import AutoEngine
 import asyncio
@@ -225,6 +229,13 @@ async def main():
     wav = await engine.speak_async(
         name="长乐",
         text="我是长乐啦。",
+        temperature=0.9,
+        top_p=0.95,
+        top_k=50,
+        max_tokens=512,
+        repetition_penalty=1.0,  # 重复惩罚，如果大于1.0，降低重复token生成的概率。可避免长时间静音token生成
+        length_threshold=50,  # 长度阈值，长度大于该值的文本将被切分成多个片段合成，避免长文本合成漏音等问题
+        window_size=50,  # 长文本切分后的片段长度
     )
     engine.write_audio(wav, "test.wav")
 
@@ -232,9 +243,18 @@ async def main():
 if __name__ == '__main__':
     asyncio.run(main())
 ```
+
 OrpheusTTS模型可使用的音色 name 请参考：[orpheus_engine.py](fast_tts/engine/orpheus_engine.py)
 
 3. 具体使用方法参考 [inference.py](inference.py)
+
+## 使用提示
+
+- `SparkTTS`模型权重量化为`float16`无法使用，`torch_dtype`请设置为`bfloat16`或`float32`。
+- 如果出现长空白音，可尝试调整`repetition_penalty`参数，大于`1.0`会降低重复token生成的概率，可避免长时间静音`token`生成(
+  SparkTTS的静音token id为`163406`)。
+- `OrpheusTTS`支持emotion tag，直接在文本中添加`<tag>`
+  即可实现。每个模型支持的tag标签请参考：[orpheus_engine.py](fast_tts/engine/orpheus_engine.py) 中 LANG_MAP
 
 ## Reference
 

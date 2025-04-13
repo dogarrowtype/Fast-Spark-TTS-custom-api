@@ -201,7 +201,12 @@ async def main():
         temperature=0.9,
         top_p=0.95,
         top_k=50,
-        max_tokens=512
+        max_tokens=512,
+        # Repetition penalty. If greater than 1.0, it reduces the probability of generating repeated tokens, helping to avoid extended periods of silence.
+        repetition_penalty=1.0,
+        # Length threshold. Text longer than this value will be split into multiple segments during synthesis to prevent issues like dropped tokens in long texts.
+        length_threshold=50,
+        window_size=50,  # The segment length after splitting long texts.
     )
     engine.write_audio(wav, "test.wav")
 
@@ -212,8 +217,6 @@ if __name__ == '__main__':
 
 2. OrpheusTTS Example usage:
 
-目前效果不太稳定
-
 ```python
 from fast_tts import AutoEngine
 import asyncio
@@ -221,14 +224,23 @@ import asyncio
 
 async def main():
     engine = AutoEngine(
-        model_path="checkpoints/3b-zh-ft-research_release",
+        model_path="checkpoints/orpheus-3b-0.1-ft",
         snac_path="checkpoints/snac_24khz",
         max_length=8192,
         backend="vllm"
     )
     wav = await engine.speak_async(
-        name="长乐",
-        text="我是长乐啦。",
+        name="tara",
+        text="Hey there guys. It's, <giggle> Tara here, and let me introduce you to Zac.. ",
+        temperature=0.9,
+        top_p=0.95,
+        top_k=50,
+        max_tokens=512,
+        # Repetition penalty. If greater than 1.0, it reduces the probability of generating repeated tokens, helping to avoid extended periods of silence.
+        repetition_penalty=1.0,
+        # Length threshold. Text longer than this value will be split into multiple segments during synthesis to prevent issues like dropped tokens in long texts.
+        length_threshold=50,
+        window_size=50,  # The segment length after splitting long texts.
     )
     engine.write_audio(wav, "test.wav")
 
@@ -241,6 +253,17 @@ For the available voice names of the OrpheusTTS model, please refer
 to: [orpheus_engine.py](fast_tts/engine/orpheus_engine.py)
 
 4. For additional details, refer to [inference.py](inference.py).
+
+## Usage Tips
+
+- The `SparkTTS` model cannot be used if its weights are quantized to `float16`; please set `torch_dtype` to `bfloat16`
+  or `float32`.
+- If you experience extended periods of silence, try adjusting the `repetition_penalty` parameter. Values greater than
+  `1.0` reduce the probability of generating repeated tokens, which helps to avoid long durations of silent token
+  generation (the silent token id for SparkTTS is `163406`).
+- `OrpheusTTS` supports emotion tags. You can simply add `<tag>` directly in the text to activate this feature. For the
+  list of supported tags for each model, please refer to LANG_MAP
+  in [orpheus_engine.py](fast_tts/engine/orpheus_engine.py).
 
 ## Reference
 
