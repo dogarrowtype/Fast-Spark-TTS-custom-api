@@ -22,36 +22,56 @@ from fast_tts.server.openai_router import openai_router
 logger = get_logger()
 
 
+def find_ref_files(role_path: str, suffix: str = '.wav'):
+    if not os.path.isdir(role_path):
+        return
+    for filename in os.listdir(role_path):
+        if filename.endswith(suffix):
+            return os.path.join(role_path, filename)
+    return
+
+
 async def load_roles(async_engine: AutoEngine, role_dir: Optional[str] = None):
     # 加载已有的角色音频
     if role_dir is not None and os.path.exists(role_dir):
-        logger.info(f"加载角色库：{role_dir}")
+        logger.info(f"loading roles：{role_dir}")
         role_list = os.listdir(role_dir)
         exist_roles = []
         for role in role_list:
             if role in exist_roles:
-                logger.warning(f"{role} 角色已存在")
+                logger.warning(f"`{role}` already exists")
                 continue
-            role_audio = os.path.join(role_dir, role, "reference_audio.wav")
+            role_path = os.path.join(role_dir, role)
 
-            try:
-                role_text = open(os.path.join(role_dir, role, "reference_text.txt"), "r", encoding='utf8').read()
-                role_text = role_text.strip()
-            except Exception as e:
-                role_text = None
+            wav_file = find_ref_files(role_path, suffix='.wav')
+            txt_file = find_ref_files(role_path, suffix='.txt')
+            npy_file = find_ref_files(role_path, suffix='.npy')
+            if wav_file is None:
+                continue
 
-            if role_text == "":
-                role_text = None
+            role_text = None
+            if async_engine.engine_name == 'mega':
+                if npy_file is None:
+                    logger.warning("MegaTTS克隆音频需要参考音频的latent_file(.npy)。")
+                    continue
+                else:
+                    ref_audio = (wav_file, npy_file)
+            else:
+                if txt_file is not None:
+                    role_text = open(
+                        os.path.join(role_dir, role, "reference_text.txt"),
+                        "r",
+                        encoding='utf8'
+                    ).read().strip()
+                ref_audio = wav_file
 
             exist_roles.append(role)
             await async_engine.add_speaker(
                 name=role,
-                audio=role_audio,
+                audio=ref_audio,
                 reference_text=role_text,
             )
         logger.info(f"角色库加载完毕，角色有：{'、'.join(exist_roles)}")
-    else:
-        logger.warning("当前角色目录不存在，将无法使用角色克隆功能！")
 
 
 async def warmup_engine(async_engine: AutoEngine):
@@ -67,6 +87,8 @@ async def warmup_engine(async_engine: AutoEngine):
             text="test audio.",
             max_tokens=128
         )
+    elif async_engine.engine_name == 'mega':
+        await async_engine._engine._generate(text="测试音频", max_tokens=16)
     logger.info("Warmup complete.")
 
 
@@ -92,8 +114,13 @@ def build_app(args) -> FastAPI:
             cache_implementation=args.cache_implementation,
             seed=args.seed
         )
+        role_dir = None
         if engine.engine_name == 'spark':
-            await load_roles(engine, args.role_dir)
+            role_dir = args.role_dir or "data/roles"
+        elif engine.engine_name == 'mega':
+            role_dir = args.role_dir or "data/mega-roles"
+        if role_dir is not None:
+            await load_roles(engine, role_dir)
         await warmup_engine(engine)
         # 将 engine 保存到 app.state 中，方便路由中使用
         app.state.engine = engine
@@ -156,10 +183,11 @@ if __name__ == '__main__':
     parser.add_argument("--torch_dtype", type=str, default="auto",
                         choices=['float16', "bfloat16", 'float32', 'auto'],
                         help="torch generator中llm使用的dtype。")
-    parser.add_argument("--cache_implementation", type=str, default=None,
-                        help='将在“generate”中实例化的缓存类的名称，用于更快地解码. 可能设置的值有：static、offloaded_static、sliding_window、hybrid、mamba、quantized。'
-                        )
-    parser.add_argument("--role_dir", type=str, default="data/roles",
+    parser.add_argument(
+        "--cache_implementation", type=str, default=None,
+        help='将在“generate”中实例化的缓存类的名称，用于更快地解码. 可能设置的值有：static、offloaded_static、sliding_window、hybrid、mamba、quantized。'
+    )
+    parser.add_argument("--role_dir", type=str, default=None,
                         help="存放已有角色信息的目录")
     parser.add_argument("--api_key", type=str, default=None,
                         help="设置接口访问限制：Api key")

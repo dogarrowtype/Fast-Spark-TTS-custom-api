@@ -116,8 +116,6 @@ class AsyncOrpheusEngine(BaseEngine):
 
             self.default_speaker = LANG_MAP[self.lang]["default"]
 
-        self._batch_size = batch_size
-
         super().__init__(
             llm_model_path=model_path,
             max_length=max_length,
@@ -261,6 +259,7 @@ class AsyncOrpheusEngine(BaseEngine):
                 repetition_penalty=repetition_penalty,
                 **kwargs
         ):
+            text_token = text_token.text
             audio_ids = pattern.findall(text_token)
             for audio_id in audio_ids:
                 audio_id = int(audio_id)

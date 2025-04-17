@@ -4,10 +4,11 @@
 # Author  : Hui Huang
 import base64
 import io
+from typing import Optional, Annotated, Literal
 
 import httpx
 import numpy as np
-from fastapi import HTTPException, Request, APIRouter
+from fastapi import HTTPException, Request, APIRouter, UploadFile, File, Form, Depends
 from fastapi.responses import StreamingResponse, JSONResponse, Response, FileResponse
 from .protocol import TTSRequest, CloneRequest, SpeakRequest, MultiSpeakRequest
 from .utils.audio_writer import StreamingAudioWriter
@@ -53,9 +54,10 @@ async def get_web():
 @base_router.post("/generate_voice")
 async def generate_voice(req: TTSRequest, raw_request: Request):
     engine: AutoEngine = raw_request.app.state.engine
-    if engine.engine_name == 'orpheus':
-        logger.error("OrpheusTTS 暂不支持语音合成.")
-        raise HTTPException(status_code=500, detail="OrpheusTTS 暂不支持该功能.")
+    if engine.engine_name in ['orpheus', 'mega']:
+        err_msg = f"`{engine.engine_name}` 暂不支持控制语音合成."
+        logger.error(err_msg)
+        raise HTTPException(status_code=500, detail=err_msg)
 
     audio_writer = StreamingAudioWriter(req.response_format, sample_rate=engine.SAMPLE_RATE)
     # Set content type based on format
@@ -135,31 +137,83 @@ async def get_audio_bytes_from_url(url: str) -> bytes:
         return response.content
 
 
+def parse_clone_form(
+        text: str = Form(...),
+        reference_audio: Optional[str] = Form(None),
+        reference_text: Optional[str] = Form(None),
+        temperature: float = Form(0.9),
+        top_k: int = Form(50),
+        top_p: float = Form(0.95),
+        repetition_penalty: float = Form(1.0),
+        max_tokens: int = Form(4096),
+        length_threshold: int = Form(50),
+        window_size: int = Form(50),
+        stream: bool = Form(False),
+        response_format: Literal["mp3", "opus", "aac", "flac", "wav", "pcm"] = Form("mp3"),
+):
+    return CloneRequest(
+        text=text,
+        reference_audio=reference_audio,
+        reference_text=reference_text,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        repetition_penalty=repetition_penalty,
+        max_tokens=max_tokens,
+        length_threshold=length_threshold,
+        window_size=window_size,
+        stream=stream,
+        response_format=response_format,
+    )
+
+
 # 克隆语音接口：接收 multipart/form-data，上传参考音频和其它表单参数
 @base_router.post("/clone_voice")
 async def clone_voice(
-        req: CloneRequest, raw_request: Request
+        req: Annotated[CloneRequest, Depends(parse_clone_form)],
+        raw_request: Request,
+        reference_audio_file: Optional[UploadFile] = File(None),
+        latent_file: Optional[UploadFile] = File(None),
 ):
     engine: AutoEngine = raw_request.app.state.engine
     if engine.engine_name == 'orpheus':
         logger.error("OrpheusTTS 暂不支持语音克隆.")
         raise HTTPException(status_code=500, detail="OrpheusTTS 暂不支持该功能.")
 
-    # 根据 reference_audio 内容判断读取方式
-    if req.reference_audio.startswith("http://") or req.reference_audio.startswith("https://"):
-        audio_bytes = await get_audio_bytes_from_url(req.reference_audio)
-    else:
+    if reference_audio_file is None:
+        # 根据 reference_audio 内容判断读取方式
+        if req.reference_audio.startswith("http://") or req.reference_audio.startswith("https://"):
+            audio_bytes = await get_audio_bytes_from_url(req.reference_audio)
+        else:
+            try:
+                audio_bytes = base64.b64decode(req.reference_audio)
+            except Exception as e:
+                logger.warning("无效的 base64 音频数据: " + str(e))
+                raise HTTPException(status_code=400, detail="无效的 base64 音频数据: " + str(e))
+        # 利用 BytesIO 包装字节数据，然后使用 soundfile 读取为 numpy 数组
         try:
-            audio_bytes = base64.b64decode(req.reference_audio)
+            bytes_io = io.BytesIO(audio_bytes)
         except Exception as e:
-            logger.warning("无效的 base64 音频数据: " + str(e))
-            raise HTTPException(status_code=400, detail="无效的 base64 音频数据: " + str(e))
-    # 利用 BytesIO 包装字节数据，然后使用 soundfile 读取为 numpy 数组
-    try:
-        bytes_io = io.BytesIO(audio_bytes)
-    except Exception as e:
-        logger.warning("读取参考音频失败: " + str(e))
-        raise HTTPException(status_code=400, detail="读取参考音频失败: " + str(e))
+            logger.warning("读取参考音频失败: " + str(e))
+            raise HTTPException(status_code=400, detail="读取参考音频失败: " + str(e))
+    else:
+        content = await reference_audio_file.read()
+        if not content:
+            logger.warning("参考音频文件为空")
+            raise HTTPException(status_code=400, detail="参考音频文件为空")
+        bytes_io = io.BytesIO(content)
+
+    if engine.engine_name == 'mega':
+        if latent_file is None:
+            err_msg = "MegaTTS克隆音频需要上传参考音频的latent_file(.npy)。"
+            logger.warning(err_msg)
+            raise HTTPException(status_code=400, detail=err_msg)
+        else:
+            contents = await latent_file.read()
+            latent_io = io.BytesIO(contents)
+        reference_audio = (bytes_io, latent_io)
+    else:
+        reference_audio = bytes_io
 
     audio_writer = StreamingAudioWriter(req.response_format, sample_rate=engine.SAMPLE_RATE)
     # Set content type based on format
@@ -175,7 +229,7 @@ async def clone_voice(
     if req.stream:
         data = dict(
             text=req.text,
-            reference_audio=bytes_io,
+            reference_audio=reference_audio,
             reference_text=req.reference_text,
             temperature=req.temperature,
             top_p=req.top_p,
@@ -204,7 +258,7 @@ async def clone_voice(
         try:
             audio = await engine.clone_voice_async(
                 text=req.text,
-                reference_audio=bytes_io,
+                reference_audio=reference_audio,
                 reference_text=req.reference_text,
                 temperature=req.temperature,
                 top_p=req.top_p,

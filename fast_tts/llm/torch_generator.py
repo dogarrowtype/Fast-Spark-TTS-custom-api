@@ -2,20 +2,96 @@
 # Time      :2025/3/29 10:57
 # Author    :Hui Huang
 from threading import Thread
-from typing import Optional, Literal, AsyncIterator, List
+from typing import Literal, AsyncIterator, List
 
 import torch
 
-from .base_llm import BaseLLM
+from .base_llm import BaseLLM, GenerationResponse
 from transformers import (
     AutoModelForCausalLM,
     GenerationConfig,
-    TextIteratorStreamer,
     StoppingCriteria,
-    StoppingCriteriaList)
+    StoppingCriteriaList,
+    TextStreamer)
 import uuid
+from typing import TYPE_CHECKING, Optional
+from queue import Queue
+
+if TYPE_CHECKING:
+    from transformers import AutoTokenizer
 
 __all__ = ["TorchGenerator"]
+
+
+class ResIteratorStreamer(TextStreamer):
+
+    def __init__(
+            self,
+            tokenizer: "AutoTokenizer",
+            skip_prompt: bool = False,
+            timeout: Optional[float] = None,
+            **decode_kwargs
+    ):
+        super().__init__(tokenizer, skip_prompt, **decode_kwargs)
+        self.res_queue = Queue()
+        self.timeout = timeout
+        self.num_tokens = 0
+
+    def put(self, value):
+        """
+        Receives tokens, decodes them, and prints them to stdout as soon as they form entire words.
+        """
+        if len(value.shape) > 1 and value.shape[0] > 1:
+            raise ValueError("TextStreamer only supports batch size 1")
+        elif len(value.shape) > 1:
+            value = value[0]
+
+        if self.skip_prompt and self.next_tokens_are_prompt:
+            self.next_tokens_are_prompt = False
+            return
+
+        # Add the new token to the cache and decodes the entire thing.
+        self.token_cache.extend(value.tolist())
+        text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
+
+        printable_text = text[self.print_len:]
+        self.print_len += len(printable_text)
+        printable_tokens = self.token_cache[self.num_tokens:]
+        self.num_tokens = len(self.token_cache)
+
+        self.on_finalized_res(GenerationResponse(text=printable_text, token_ids=printable_tokens))
+
+    def end(self):
+        """Flushes any remaining cache and prints a newline to stdout."""
+        # Flush the cache, if it exists
+        if len(self.token_cache) > 0:
+            text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
+            printable_text = text[self.print_len:]
+            printable_tokens = self.token_cache[self.num_tokens:]
+            self.token_cache = []
+            self.print_len = 0
+        else:
+            printable_text = ""
+            printable_tokens = []
+
+        self.next_tokens_are_prompt = True
+        self.on_finalized_res(GenerationResponse(text=printable_text, token_ids=printable_tokens), stream_end=True)
+
+    def on_finalized_res(self, response: GenerationResponse, stream_end: bool = False):
+        """Put the new text in the queue. If the stream is ending, also put a stop signal in the queue."""
+        self.res_queue.put(response, timeout=self.timeout)
+        if stream_end:
+            self.res_queue.put(None, timeout=self.timeout)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        value = self.res_queue.get(timeout=self.timeout)
+        if value is None:
+            raise StopIteration()
+        else:
+            return value
 
 
 class StopOnTokens(StoppingCriteria):
@@ -53,15 +129,19 @@ class TorchGenerator(BaseLLM):
                  **kwargs):
         self.device = torch.device(device)
         self.cache_implementation = cache_implementation
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_path,
+
+        runtime_kwargs = dict(
+            pretrained_model_name_or_path=model_path,
             torch_dtype=getattr(torch, torch_dtype, "auto"),
             attn_implementation=attn_implementation,
             **kwargs
         )
+        self.model = AutoModelForCausalLM.from_pretrained(
+            **runtime_kwargs
+        )
         self.model.eval().to(self.device)
 
-        self.streamer: dict[str, TextIteratorStreamer] = {}
+        self.streamer: dict[str, ResIteratorStreamer] = {}
 
         super(TorchGenerator, self).__init__(
             tokenizer=model_path,
@@ -70,41 +150,24 @@ class TorchGenerator(BaseLLM):
             stop_token_ids=stop_token_ids,
         )
 
-    async def async_generate(
+    async def _generate(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
-            **kwargs
-    ) -> str:
-        """
-        如果使用动态批处理，hf代码无法为每一个请求单独设置generation 参数，所以还是逐个处理吧。
-        如果想要动态批处理，建议使用vllm、sglang
-        Args:
-            prompt:
-            max_tokens:
-            temperature:
-            top_p:
-            top_k:
-            repetition_penalty:
-            **kwargs:
-
-        Returns:
-
-        """
-        max_tokens = self.valid_max_tokens(max_tokens)
-        input_ids = self.tokenize(prompt, max_tokens)
-
-        input_ids = torch.LongTensor([input_ids]).to(self.device)
+            skip_special_tokens: bool = True,
+            **kwargs) -> GenerationResponse:
+        input_ids = torch.LongTensor([prompt_ids]).to(self.device)
+        stop_criteria = StoppingCriteriaList([StopOnTokens(self.stop_token_ids)])
         generated_ids = self.model.generate(
             input_ids,
             generation_config=GenerationConfig(
                 max_length=self.max_length,
                 pad_token_id=self.tokenizer.pad_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
+                eos_token_id=self.stop_token_ids[0],
                 max_new_tokens=max_tokens,
                 temperature=temperature,
                 top_p=top_p,
@@ -114,32 +177,37 @@ class TorchGenerator(BaseLLM):
                 cache_implementation=self.cache_implementation,
                 **kwargs
             ),
+            use_cache=True,
+            stopping_criteria=stop_criteria,
         )
         prompt_length = input_ids.size(1)
-        completion_ids = generated_ids[:, prompt_length:]
-        completions_text = self.tokenizer.batch_decode(completion_ids, skip_special_tokens=True)
-        return completions_text[0]
+        completion_ids = generated_ids[0][prompt_length:]
+        completions_text = self.tokenizer.decode(completion_ids, skip_special_tokens=skip_special_tokens)
 
-    async def async_stream_generate(
+        return GenerationResponse(
+            text=completions_text,
+            token_ids=completion_ids.detach().cpu().numpy().tolist(),
+        )
+
+    async def _stream_generate(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
-            **kwargs) -> AsyncIterator[str]:
-        max_tokens = self.valid_max_tokens(max_tokens)
-        input_ids = self.tokenize(prompt, max_tokens)
-
-        input_ids = torch.LongTensor([input_ids]).to(self.device)
+            skip_special_tokens: bool = True,
+            **kwargs
+    ) -> AsyncIterator[GenerationResponse]:
+        input_ids = torch.LongTensor([prompt_ids]).to(self.device)
         request_id = str(uuid.uuid4().hex)
 
         # 避免并发请求时，streamer错乱
-        self.streamer[request_id] = TextIteratorStreamer(
+        self.streamer[request_id] = ResIteratorStreamer(
             self.tokenizer,
             skip_prompt=True,
-            skip_special_tokens=True)
+            skip_special_tokens=skip_special_tokens)
         cur_streamer = self.streamer[request_id]
         stop_criteria = StoppingCriteriaList([StopOnTokens(self.stop_token_ids)])
 
@@ -149,7 +217,7 @@ class TorchGenerator(BaseLLM):
             generation_config=GenerationConfig(
                 max_length=self.max_length,
                 pad_token_id=self.tokenizer.pad_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
+                eos_token_id=self.stop_token_ids[0],
                 max_new_tokens=max_tokens,
                 temperature=temperature,
                 top_p=top_p,
@@ -162,7 +230,7 @@ class TorchGenerator(BaseLLM):
             use_cache=True,
             stopping_criteria=stop_criteria)
         Thread(target=self.model.generate, kwargs=generation_kwargs).start()
-        for token in cur_streamer:
-            yield token
+        for res in cur_streamer:
+            yield res
 
         self.streamer.pop(request_id)

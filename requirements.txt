@@ -11,3 +11,7 @@ uvicorn
 httpx
 snac
 av
+librosa
+pyloudnorm
+openai-whisper
+python-multipart

@@ -7,10 +7,14 @@ from typing import TYPE_CHECKING
 _import_structure = {
     "spark_tokenizer": [
         "SparkTokenizer"
+    ],
+    "mega_tokenizer": [
+        "MegaTokenizer"
     ]
 }
 if TYPE_CHECKING:
     from .spark_tokenizer import SparkTokenizer
+    from .mega_tokenizer import MegaTokenizer
 
 else:
     import sys

@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 _import_structure = {
     "tokenizer": [
-        "SparkTokenizer"
+        "SparkTokenizer",
+        "MegaTokenizer"
     ],
     "detokenizer": [
         'SparkDeTokenizer',
@@ -14,7 +15,10 @@ _import_structure = {
     ]
 }
 if TYPE_CHECKING:
-    from .tokenizer import SparkTokenizer
+    from .tokenizer import (
+        SparkTokenizer,
+        MegaTokenizer
+    )
     from .detokenizer import (
         SparkDeTokenizer,
         SnacDeTokenizer

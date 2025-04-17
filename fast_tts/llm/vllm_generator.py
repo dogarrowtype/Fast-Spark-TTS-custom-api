@@ -3,7 +3,7 @@
 # Author    :Hui Huang
 from typing import Optional, AsyncIterator
 
-from .base_llm import BaseLLM
+from .base_llm import BaseLLM, GenerationResponse
 
 __all__ = ["VllmGenerator"]
 
@@ -42,17 +42,16 @@ class VllmGenerator(BaseLLM):
 
     async def _get_vllm_generator(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
+            skip_special_tokens: bool = True,
             **kwargs):
         from vllm import SamplingParams
-        max_tokens = self.valid_max_tokens(max_tokens)
-        prompt_tokens = self.tokenize(prompt, max_tokens)
-        inputs = {"prompt_token_ids": prompt_tokens}
+        inputs = {"prompt_token_ids": prompt_ids}
         sampling_params = SamplingParams(
             n=1,
             temperature=temperature,
@@ -61,6 +60,7 @@ class VllmGenerator(BaseLLM):
             max_tokens=max_tokens,
             repetition_penalty=repetition_penalty,
             stop_token_ids=self.stop_token_ids,
+            skip_special_tokens=skip_special_tokens,
             **kwargs)
         results_generator = self.model.generate(
             prompt=inputs,
@@ -68,23 +68,24 @@ class VllmGenerator(BaseLLM):
             sampling_params=sampling_params)
         return results_generator
 
-    async def async_generate(
+    async def _generate(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
-            **kwargs
-    ) -> str:
+            skip_special_tokens: bool = True,
+            **kwargs) -> GenerationResponse:
         results_generator = await self._get_vllm_generator(
-            prompt=prompt,
+            prompt_ids=prompt_ids,
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
             repetition_penalty=repetition_penalty,
+            skip_special_tokens=skip_special_tokens,
             **kwargs
         )
         final_res = None
@@ -94,30 +95,44 @@ class VllmGenerator(BaseLLM):
         assert final_res is not None
         choices = []
         for output in final_res.outputs:
-            choices.append(output.text)
+            choices.append(GenerationResponse(
+                text=output.text,
+                token_ids=output.token_ids,
+            ))
         return choices[0]
 
-    async def async_stream_generate(
+    async def _stream_generate(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
-            **kwargs) -> AsyncIterator[str]:
+            skip_special_tokens: bool = True,
+            **kwargs
+    ) -> AsyncIterator[GenerationResponse]:
         results_generator = await self._get_vllm_generator(
-            prompt=prompt,
+            prompt_ids=prompt_ids,
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
             repetition_penalty=repetition_penalty,
+            skip_special_tokens=skip_special_tokens,
             **kwargs
         )
         previous_texts = ""
+        previous_num_tokens = 0
         async for res in results_generator:
             for output in res.outputs:
                 delta_text = output.text[len(previous_texts):]
                 previous_texts = output.text
-                yield delta_text
+
+                delta_token_ids = output.token_ids[previous_num_tokens:]
+                previous_num_tokens = len(output.token_ids)
+
+                yield GenerationResponse(
+                    text=delta_text,
+                    token_ids=delta_token_ids
+                )

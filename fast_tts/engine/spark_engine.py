@@ -245,7 +245,6 @@ class AsyncSparkEngine(BaseEngine):
             wait_timeout=wait_timeout
         )
         self.speakers = {}
-        self._batch_size = batch_size
 
         super().__init__(
             llm_model_path=os.path.join(model_path, "LLM"),
@@ -309,6 +308,7 @@ class AsyncSparkEngine(BaseEngine):
             repetition_penalty=repetition_penalty,
             **kwargs
         )
+        generated_output = generated_output.text
         pred_semantic_tokens = [int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)]
         if len(pred_semantic_tokens) == 0:
             err_msg = f"Semantic tokens 预测为空，prompt：{prompt}，llm output：{generated_output}"
@@ -507,6 +507,7 @@ class AsyncSparkEngine(BaseEngine):
                     repetition_penalty=repetition_penalty,
                     **kwargs
             ):
+                tokens = tokens.text
                 pred_semantic_tokens = [
                     int(token) for token in re.findall(r"bicodec_semantic_(\d+)", tokens)]
 
@@ -889,6 +890,7 @@ class AsyncSparkEngine(BaseEngine):
                     repetition_penalty=repetition_penalty,
                     **kwargs
             ):
+                tokens = tokens.text
                 if acoustic_tokens is None:
                     completion += tokens
                     acoustics = re.findall(

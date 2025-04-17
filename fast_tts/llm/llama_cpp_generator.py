@@ -4,7 +4,7 @@
 import os
 from typing import AsyncIterator, Optional, List
 from ..logger import get_logger
-from .base_llm import BaseLLM
+from .base_llm import BaseLLM, GenerationResponse
 
 logger = get_logger()
 
@@ -35,11 +35,15 @@ class LlamaCppGenerator(BaseLLM):
                 logger.warning(
                     f"Multiple gguf files found in the model directory, using the first one: {model_files[0]}")
             model_file = os.path.join(model_path, model_files[0])
-        self.model = Llama(
-            model_file,
+
+        runtime_kwargs = dict(
+            model_path=model_file,
             n_ctx=max_length,
             n_gpu_layers=0 if device == 'cpu' else -1,
             **kwargs
+        )
+        self.model = Llama(
+            **runtime_kwargs
         )
         # 不使用llama cpp 的 tokenizer
         super(LlamaCppGenerator, self).__init__(
@@ -49,21 +53,20 @@ class LlamaCppGenerator(BaseLLM):
             stop_token_ids=stop_token_ids,
         )
 
-    async def async_generate(
+    async def _generate(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
+            skip_special_tokens: bool = True,
             **kwargs
-    ) -> str:
-        max_tokens = self.valid_max_tokens(max_tokens)
-        prompt_tokens = self.tokenize(prompt, max_tokens)
+    ) -> GenerationResponse:
         completion_tokens = []
         for token in self.model.generate(
-                prompt_tokens,
+                prompt_ids,
                 top_k=top_k,
                 top_p=top_p,
                 temp=temperature,
@@ -72,29 +75,33 @@ class LlamaCppGenerator(BaseLLM):
         ):
             if token in self.stop_token_ids:
                 break
-            if len(completion_tokens) + len(prompt_tokens) >= self.max_length:
+
+            if len(completion_tokens) + len(prompt_ids) > self.max_length:
                 break
             completion_tokens.append(token)
 
         # Decode the generated tokens into text
-        output = self.tokenizer.decode(completion_tokens)
-        return output
+        output = self.tokenizer.decode(
+            completion_tokens,
+            skip_special_tokens=skip_special_tokens
+        )
+        return GenerationResponse(text=output, token_ids=completion_tokens)
 
-    async def async_stream_generate(
+    async def _stream_generate(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
-            **kwargs) -> AsyncIterator[str]:
-        max_tokens = self.valid_max_tokens(max_tokens)
-        prompt_tokens = self.tokenize(prompt, max_tokens)
+            skip_special_tokens: bool = True,
+            **kwargs
+    ) -> AsyncIterator[GenerationResponse]:
         completion_tokens = []
         previous_texts = ""
         for token in self.model.generate(
-                prompt_tokens,
+                prompt_ids,
                 top_k=top_k,
                 top_p=top_p,
                 temp=temperature,
@@ -103,13 +110,16 @@ class LlamaCppGenerator(BaseLLM):
         ):
             if token in self.stop_token_ids:
                 break
-            if len(completion_tokens) + len(prompt_tokens) >= self.max_length:
+            if len(completion_tokens) + len(prompt_ids) > self.max_length:
                 break
             completion_tokens.append(token)
 
-            text = self.tokenizer.decode(completion_tokens)
+            text = self.tokenizer.decode(completion_tokens, skip_special_tokens=skip_special_tokens)
 
             delta_text = text[len(previous_texts):]
             previous_texts = text
 
-            yield delta_text
+            yield GenerationResponse(
+                text=delta_text,
+                token_ids=[token],
+            )

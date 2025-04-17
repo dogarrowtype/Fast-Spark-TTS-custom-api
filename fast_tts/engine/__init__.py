@@ -10,6 +10,7 @@ _import_structure = {
     ],
     "spark_engine": ["AsyncSparkEngine", "SparkAcousticTokens"],
     "orpheus_engine": ["AsyncOrpheusEngine"],
+    "mega_engine": ["AsyncMega3Engine"],
     "auto_engine": ["AutoEngine"]
 }
 
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from .base_engine import BaseEngine
     from .spark_engine import AsyncSparkEngine, SparkAcousticTokens
     from .orpheus_engine import AsyncOrpheusEngine
+    from .mega_engine import AsyncMega3Engine
     from .auto_engine import AutoEngine
 else:
     import sys

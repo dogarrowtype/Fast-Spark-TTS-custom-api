@@ -2,7 +2,8 @@
 
 [中文](README.MD) | [English](README_EN.MD)
 
-> 🚀 **FastTTS** – Based on models such as SparkTTS and OrpheusTTS, this platform provides high-quality Chinese speech
+> 🚀 **FastTTS** – Based on models such as SparkTTS, OrpheusTTS and MegaTTS3, this platform provides high-quality Chinese
+> speech
 > synthesis and voice cloning services. With a simple and user-friendly web interface, you can effortlessly create
 > natural
 > and realistic human voices to suit a wide range of scenarios.
@@ -42,6 +43,7 @@
 |         Spark-TTS         |                                                                            [SparkAudio/Spark-TTS-0.5B](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)                                                                             |    [SparkAudio/Spark-TTS-0.5B](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)    |    [SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)    | 
 |        Orpheus-TTS        |                                  [canopylabs/orpheus-3b-0.1-ft](https://huggingface.co/canopylabs/orpheus-3b-0.1-ft) & [hubertsiuzdak/snac_24khz](https://huggingface.co/hubertsiuzdak/snac_24khz)                                   | [canopylabs/orpheus-3b-0.1-ft](https://modelscope.cn/models/canopylabs/orpheus-3b-0.1-ft) | [orpheus-gguf](https://huggingface.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF) | 
 | Orpheus-TTS(Multilingual) | [orpheus-multilingual-research-release](https://huggingface.co/collections/canopylabs/orpheus-multilingual-research-release-67f5894cd16794db163786ba)  & [hubertsiuzdak/snac_24khz](https://huggingface.co/hubertsiuzdak/snac_24khz) |                                             -                                             |                                        -                                         |
+|         MegaTTS3          |                                                                                   [ByteDance/MegaTTS3](https://huggingface.co/ByteDance/MegaTTS3)                                                                                    |                                             -                                             |                                        -                                         |
 
 ### Install Dependencies
 
@@ -252,6 +254,33 @@ if __name__ == '__main__':
 For the available voice names of the OrpheusTTS model, please refer
 to: [orpheus_engine.py](fast_tts/engine/orpheus_engine.py)
 
+3. MegaTTS3 Example usage:
+
+```python
+from fast_tts import AsyncMega3Engine
+import asyncio
+
+
+async def main():
+    engine = AsyncMega3Engine(
+        model_path="checkpoints/MegaTTS3",
+        backend="vllm",
+        tokenizer_device='cuda',
+        torch_dtype='float16'
+    )
+    audio = await engine.clone_voice_async(
+        text="另一边的桌上,一位读书人嗤之以鼻道,'佛子三藏,神子燕小鱼是什么样的人物,李家的那个李子夜如何与他们相提并论？",
+        # The reference audio for the Mega TTS model is a tuple that requires both a WAV file and an encoded NPY file to be provided.  
+        reference_audio=("checkpoints/Chinese_prompt.wav", "checkpoints/Chinese_prompt.npy"),
+        max_tokens=512
+    )
+    engine.write_audio(audio, 'res.wav')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
 4. For additional details, refer to [inference.py](inference.py).
 
 ## Usage Tips
@@ -264,10 +293,17 @@ to: [orpheus_engine.py](fast_tts/engine/orpheus_engine.py)
 - `OrpheusTTS` supports emotion tags. You can simply add `<tag>` directly in the text to activate this feature. For the
   list of supported tags for each model, please refer to LANG_MAP
   in [orpheus_engine.py](fast_tts/engine/orpheus_engine.py).
+- For security reasons, the **MegaTTS3** team has not uploaded the WaveVAE encoder parameters. Therefore, reference
+  audio can only be downloaded from the following link for
+  inference: [Reference Audio](https://drive.google.com/drive/folders/1QhcHWcy20JfqWjgqZX1YM3I6i9u4oNlr).  
+  If you wish to use your own audio, please refer to the instructions in the MegaTTS3
+  project: [MegaTTS3](https://github.com/bytedance/MegaTTS3/tree/main?tab=readme-ov-file#inference).
 
 ## Reference
 
 1. [Spark-TTS](https://github.com/SparkAudio/Spark-TTS)
+2. [Orpheus-TTS](https://github.com/canopyai/Orpheus-TTS)
+3. [MegaTTS3](https://github.com/bytedance/MegaTTS3)
 
 ## ⚠️ Disclaimer
 

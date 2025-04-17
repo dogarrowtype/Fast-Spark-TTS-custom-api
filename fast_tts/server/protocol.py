@@ -38,7 +38,7 @@ class TTSRequest(BaseModel):
     repetition_penalty: float = Field(
         default=1.0,
         description="Controls the repetition penalty applied to the generated text. "
-                      "Higher values penalize repeated words and phrases."
+                    "Higher values penalize repeated words and phrases."
     )
     max_tokens: int = Field(
         default=4096,
@@ -71,8 +71,8 @@ class CloneRequest(BaseModel):
         ...,
         description="The text to generate audio for."
     )
-    reference_audio: str = Field(
-        ...,
+    reference_audio: Optional[str] = Field(
+        default=None,
         description=(
             "A reference audio sample used for voice cloning. "
             "This field accepts either a URL pointing to an audio file or base64 encoded audio data."

@@ -4,6 +4,13 @@
 from typing import List, AsyncIterator, Optional
 from transformers import AutoTokenizer
 import uuid
+from dataclasses import dataclass
+
+
+@dataclass
+class GenerationResponse:
+    text: str
+    token_ids: List[int]
 
 
 class BaseLLM:
@@ -37,15 +44,18 @@ class BaseLLM:
         max_tokens = min(self.max_length - 256, max_tokens)
         return max_tokens
 
-    def tokenize(self, text: str, max_tokens: int) -> List[int]:
+    def tokenize(self, text: str | list[int], max_tokens: int) -> List[int]:
         src_len = self.max_length - max_tokens
         src_len = max(src_len, 256)
-        tokens = self.tokenizer.encode(
-            text,
-            add_special_tokens=False,
-            truncation=False,
-            padding=False
-        )
+        if isinstance(text, str):
+            tokens = self.tokenizer.encode(
+                text,
+                add_special_tokens=False,
+                truncation=False,
+                padding=False
+            )
+        else:
+            tokens = text
         tokens = tokens[-src_len:]
         return tokens
 
@@ -53,25 +63,76 @@ class BaseLLM:
     async def random_uid(cls):
         return str(uuid.uuid4().hex)
 
-    async def async_generate(
+    async def _stream_generate(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
+            skip_special_tokens: bool = True,
             **kwargs
-    ) -> str:
-        raise NotImplementedError("generate method not implemented")
+    ) -> AsyncIterator[GenerationResponse]:
+        yield NotImplementedError
+
+    async def _generate(
+            self,
+            prompt_ids: list[int],
+            max_tokens: int = 1024,
+            temperature: float = 0.9,
+            top_p: float = 0.9,
+            top_k: int = 50,
+            repetition_penalty: float = 1.0,
+            skip_special_tokens: bool = True,
+            **kwargs) -> GenerationResponse:
+        raise NotImplementedError
+
+    async def async_generate(
+            self,
+            prompt: str | list[int],
+            max_tokens: int = 1024,
+            temperature: float = 0.9,
+            top_p: float = 0.9,
+            top_k: int = 50,
+            repetition_penalty: float = 1.0,
+            skip_special_tokens: bool = True,
+            **kwargs
+    ) -> GenerationResponse:
+        max_tokens = self.valid_max_tokens(max_tokens)
+        token_ids = self.tokenize(prompt, max_tokens)
+        response = await self._generate(
+            prompt_ids=token_ids,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            repetition_penalty=repetition_penalty,
+            skip_special_tokens=skip_special_tokens,
+            **kwargs
+        )
+        return response
 
     async def async_stream_generate(
             self,
-            prompt: str,
+            prompt: str | list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
-            **kwargs) -> AsyncIterator[str]:
-        ...
+            skip_special_tokens: bool = True,
+            **kwargs) -> AsyncIterator[GenerationResponse]:
+        max_tokens = self.valid_max_tokens(max_tokens)
+        token_ids = self.tokenize(prompt, max_tokens)
+        async for chunk in self._stream_generate(
+                prompt_ids=token_ids,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                repetition_penalty=repetition_penalty,
+                skip_special_tokens=skip_special_tokens,
+                **kwargs
+        ):
+            yield chunk

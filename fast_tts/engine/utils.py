@@ -84,6 +84,7 @@ def split_text(
     """
     text = text.strip()
     text = text_normalize(text)
+    is_chinese = contains_chinese(text)
     if len(tokenize_fn(text)) <= length_threshold:
         return [text]
 
@@ -111,7 +112,10 @@ def split_text(
                 current_length = sent_len
             else:
                 current_length += sent_len
-                current_segment += sentence
+                if is_chinese:
+                    current_segment += sentence
+                else:
+                    current_segment += " " + sentence
     if current_segment:
         segments.append(current_segment)
     return [seg for seg in segments if not is_only_punctuation(seg)]

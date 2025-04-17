@@ -7,7 +7,7 @@ from sglang.srt.entrypoints.engine import Engine
 from sglang.srt.server_args import PortArgs, ServerArgs
 from sglang.srt.managers.io_struct import GenerateReqInput
 
-from .base_llm import BaseLLM
+from .base_llm import BaseLLM, GenerationResponse
 
 __all__ = ["SglangGenerator"]
 
@@ -43,20 +43,18 @@ class SglangGenerator(BaseLLM):
             stop_token_ids=stop_token_ids,
         )
 
-    async def async_generate(
+    async def _generate(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
-            **kwargs
-    ) -> str:
-        max_tokens = self.valid_max_tokens(max_tokens)
-        prompt_tokens = self.tokenize(prompt, max_tokens)
+            skip_special_tokens: bool = True,
+            **kwargs) -> GenerationResponse:
         obj = GenerateReqInput(
-            input_ids=prompt_tokens,
+            input_ids=prompt_ids,
             sampling_params={
                 "n": 1,
                 "max_new_tokens": max_tokens,
@@ -65,6 +63,7 @@ class SglangGenerator(BaseLLM):
                 "top_p": top_p,
                 "top_k": top_k,
                 "repetition_penalty": repetition_penalty,
+                "skip_special_tokens": skip_special_tokens,
                 **kwargs
             },
             stream=False,
@@ -82,21 +81,24 @@ class SglangGenerator(BaseLLM):
         for idx, ret_item in enumerate(ret):
             choices.append(ret_item['text'])
 
-        return choices[0]
+        return GenerationResponse(
+            text=choices[0],
+            token_ids=self.tokenizer.encode(choices[0]),
+        )
 
-    async def async_stream_generate(
+    async def _stream_generate(
             self,
-            prompt: str,
+            prompt_ids: list[int],
             max_tokens: int = 1024,
             temperature: float = 0.9,
             top_p: float = 0.9,
             top_k: int = 50,
             repetition_penalty: float = 1.0,
-            **kwargs) -> AsyncIterator[str]:
-        max_tokens = self.valid_max_tokens(max_tokens)
-        prompt_tokens = self.tokenize(prompt, max_tokens)
+            skip_special_tokens: bool = True,
+            **kwargs
+    ) -> AsyncIterator[GenerationResponse]:
         obj = GenerateReqInput(
-            input_ids=prompt_tokens,
+            input_ids=prompt_ids,
             sampling_params={
                 "n": 1,
                 "max_new_tokens": max_tokens,
@@ -105,6 +107,7 @@ class SglangGenerator(BaseLLM):
                 "top_p": top_p,
                 "top_k": top_k,
                 "repetition_penalty": repetition_penalty,
+                "skip_special_tokens": skip_special_tokens,
                 **kwargs
             },
             stream=True,
@@ -112,9 +115,15 @@ class SglangGenerator(BaseLLM):
         generator = self.model.tokenizer_manager.generate_request(obj, None)
 
         previous_texts = ""
-
+        complete_tokens = []
         async for data in generator:
+            cur_token_ids = self.tokenizer.encode(data['text'])
+            delta_tokens = cur_token_ids[len(complete_tokens):]
             delta_text = data["text"][len(previous_texts):]
             previous_texts = data["text"]
+            complete_tokens = cur_token_ids
 
-            yield delta_text
+            yield GenerationResponse(
+                text=delta_text,
+                token_ids=delta_tokens,
+            )

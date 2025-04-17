@@ -6,6 +6,7 @@ import os
 from typing import Optional, Literal, Callable, AsyncIterator
 
 import numpy as np
+import torch
 
 from .base_engine import Engine
 from ..logger import get_logger
@@ -20,6 +21,13 @@ _ENGINE_DIR_NAMES = {
     ],
     "orpheus": [
         "snac"
+    ],
+    "mega": [
+        "aligner_lm",
+        "diffusion_transformer",
+        "duration_lm",
+        "g2p",
+        "wavvae"
     ]
 }
 
@@ -63,7 +71,6 @@ class AutoEngine(Engine):
             model_path=model_path,
             max_length=max_length,
             llm_device=llm_device,
-            detokenizer_device=detokenizer_device,
             backend=backend,
             llm_attn_implementation=llm_attn_implementation,
             torch_dtype=torch_dtype,
@@ -71,7 +78,6 @@ class AutoEngine(Engine):
             cache_implementation=cache_implementation,
             batch_size=batch_size,
             llm_batch_size=llm_batch_size,
-            wait_timeout=wait_timeout,
             seed=seed,
             **kwargs,
         )
@@ -82,7 +88,9 @@ class AutoEngine(Engine):
             engine_kwargs.update(
                 {
                     "tokenizer_device": tokenizer_device,
+                    "detokenizer_device": detokenizer_device,
                     "wav2vec_attn_implementation": wav2vec_attn_implementation,
+                    "wait_timeout": wait_timeout
                 }
             )
 
@@ -94,6 +102,17 @@ class AutoEngine(Engine):
                 {
                     "snac_path": snac_path,
                     "lang": lang,
+                    "detokenizer_device": detokenizer_device,
+                    "wait_timeout": wait_timeout
+                }
+            )
+        elif engine_name == 'mega':
+            from .mega_engine import AsyncMega3Engine
+
+            engine_cls = AsyncMega3Engine
+            engine_kwargs.update(
+                {
+                    "tokenizer_device": tokenizer_device,
                 }
             )
         else:
@@ -110,6 +129,8 @@ class AutoEngine(Engine):
         dirs = os.listdir(model_path)
         if all(name in dirs for name in _ENGINE_DIR_NAMES["spark"]):
             return "spark"
+        elif all(name in dirs for name in _ENGINE_DIR_NAMES["mega"]):
+            return "mega"
         elif "snac" in dirs or snac_path is not None:
             return "orpheus"
         else:

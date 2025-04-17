@@ -2,7 +2,7 @@
 
 [中文](README.MD) | [English](README_EN.MD)
 
-> 🚀 **FastTTS** - 基于SparkTTS、OrpheusTTS等模型，提供高质量中文语音合成与声音克隆服务。通过简单易用的Web界面，让您轻松创建自然逼真的人声，满足各种场景需求。
+> 🚀 **FastTTS** - 基于SparkTTS、OrpheusTTS、MegaTTS3等模型，提供高质量中文语音合成与声音克隆服务。通过简单易用的Web界面，让您轻松创建自然逼真的人声，满足各种场景需求。
 
 > 如果项目对您有帮助，欢迎给项目点个star。
 
@@ -36,6 +36,7 @@ https://github.com/user-attachments/assets/ab7ca580-45b3-41ba-acfd-b2f68ff62948
 |         Spark-TTS         |                                                                            [SparkAudio/Spark-TTS-0.5B](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)                                                                             |    [SparkAudio/Spark-TTS-0.5B](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)    |    [SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)    | 
 |        Orpheus-TTS        |                                  [canopylabs/orpheus-3b-0.1-ft](https://huggingface.co/canopylabs/orpheus-3b-0.1-ft) & [hubertsiuzdak/snac_24khz](https://huggingface.co/hubertsiuzdak/snac_24khz)                                   | [canopylabs/orpheus-3b-0.1-ft](https://modelscope.cn/models/canopylabs/orpheus-3b-0.1-ft) | [orpheus-gguf](https://huggingface.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF) | 
 | Orpheus-TTS(Multilingual) | [orpheus-multilingual-research-release](https://huggingface.co/collections/canopylabs/orpheus-multilingual-research-release-67f5894cd16794db163786ba)  & [hubertsiuzdak/snac_24khz](https://huggingface.co/hubertsiuzdak/snac_24khz) |                                             -                                             |                                        -                                         |
+|         MegaTTS3          |                                                                                   [ByteDance/MegaTTS3](https://huggingface.co/ByteDance/MegaTTS3)                                                                                    |                                             -                                             |                                        -                                         |
 
 ### 安装依赖
 
@@ -246,7 +247,34 @@ if __name__ == '__main__':
 
 OrpheusTTS模型可使用的音色 name 请参考：[orpheus_engine.py](fast_tts/engine/orpheus_engine.py)
 
-3. 具体使用方法参考 [inference.py](inference.py)
+3. MegaTTS3使用示例
+
+```python
+from fast_tts import AsyncMega3Engine
+import asyncio
+
+
+async def main():
+    engine = AsyncMega3Engine(
+        model_path="checkpoints/MegaTTS3",
+        backend="vllm",
+        tokenizer_device='cuda',
+        torch_dtype='float16'
+    )
+    audio = await engine.clone_voice_async(
+        text="另一边的桌上,一位读书人嗤之以鼻道,'佛子三藏,神子燕小鱼是什么样的人物,李家的那个李子夜如何与他们相提并论？",
+        # mega tts模型的参考音频是一个元组，需要传入wav文件和编码后的npy文件  
+        reference_audio=("checkpoints/Chinese_prompt.wav", "checkpoints/Chinese_prompt.npy"),
+        max_tokens=512
+    )
+    engine.write_audio(audio, 'res.wav')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
+4. 具体使用方法参考 [inference.py](inference.py)
 
 ## 使用提示
 
@@ -255,10 +283,15 @@ OrpheusTTS模型可使用的音色 name 请参考：[orpheus_engine.py](fast_tts
   SparkTTS的静音token id为`163406`)。
 - `OrpheusTTS`支持emotion tag，直接在文本中添加`<tag>`
   即可实现。每个模型支持的tag标签请参考：[orpheus_engine.py](fast_tts/engine/orpheus_engine.py) 中 LANG_MAP
+- 出于安全考虑，`MegaTTS3`
+  团队未上传WaveVAE编码器参数。因此，只能从此处链接下载参考音频进行推理：[参考音频](https://drive.google.com/drive/folders/1QhcHWcy20JfqWjgqZX1YM3I6i9u4oNlr)
+  。如果需要使用自己的音频，请参考MegaTTS3项目的说明：[MegaTTS3](https://github.com/bytedance/MegaTTS3/tree/main?tab=readme-ov-file#inference)
 
 ## Reference
 
 1. [Spark-TTS](https://github.com/SparkAudio/Spark-TTS)
+2. [Orpheus-TTS](https://github.com/canopyai/Orpheus-TTS)
+3. [MegaTTS3](https://github.com/bytedance/MegaTTS3)
 
 ## ⚠️ 免责声明
 

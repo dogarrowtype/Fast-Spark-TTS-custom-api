@@ -10,6 +10,7 @@ _import_structure = {
         "BaseEngine",
         "AsyncSparkEngine",
         "AsyncOrpheusEngine",
+        "AsyncMega3Engine",
         "SparkAcousticTokens",
         "AutoEngine"
     ],
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
         AsyncSparkEngine,
         AsyncOrpheusEngine,
         SparkAcousticTokens,
+        AsyncMega3Engine,
         AutoEngine
     )
 else:
