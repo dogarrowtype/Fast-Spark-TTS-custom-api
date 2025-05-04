@@ -1,5 +1,6 @@
 # WIP, no readme yet
 
+https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF
 ---
 # FastTTS 语音合成与克隆平台 🔊
 
