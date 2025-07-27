@@ -58,15 +58,41 @@ pip install -r requirements.txt
 
 ### Step 3: Download Model
 
-Download the SparkTTS model using huggingface-cli:
+**Option A: Using huggingface-cli (Recommended)**
 
 ```bash
 # Install huggingface-hub if not already installed
 pip install huggingface-hub
 
-# Download model to the models directory
-huggingface-cli download SparkAudio/Spark-TTS-0.5B --local-dir "models/Spark-TTS-0.5B"
+# Download model files to the models directory (excluding model.safetensors)
+huggingface-cli download SparkAudio/Spark-TTS-0.5B --local-dir "models/Spark-TTS-0.5B" --exclude "LLM/model.safetensors"
+
+# Download the GGUF model file and rename it
+huggingface-cli download mradermacher/SparkTTS-LLM-GGUF --filename "SparkTTS-LLM.f16.gguf" --local-dir-use-symlinks False --local-dir "models/temp"
+mv models/temp/SparkTTS-LLM.f16.gguf models/Spark-TTS-0.5B/LLM/model.gguf
+rmdir models/temp
 ```
+
+**Option B: Using wget**
+
+```bash
+# Create the models directory structure
+mkdir -p models/Spark-TTS-0.5B/LLM
+
+# Download the GGUF model file
+wget https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF/resolve/main/SparkTTS-LLM.f16.gguf -O models/Spark-TTS-0.5B/LLM/model.gguf
+
+# Download all other files from the main repository (excluding model.safetensors)
+pip install huggingface-hub
+huggingface-cli download SparkAudio/Spark-TTS-0.5B --local-dir "models/Spark-TTS-0.5B" --exclude "LLM/model.safetensors"
+```
+
+**Important Notes:**
+- This program requires the `.gguf` version of the model, not the `.safetensors` version
+- The original `model.safetensors` file from the SparkAudio repository must be excluded
+- All other files from the SparkAudio/Spark-TTS-0.5B repository are required
+- The downloaded `.gguf` file must be renamed to `model.gguf` in the `LLM` directory
+- F16 is good, but smaller versions will work if your application requires a smaller footprint
 
 ### Step 4: Optional Dependencies
 
