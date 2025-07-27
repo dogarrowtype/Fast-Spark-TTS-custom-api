@@ -1,321 +1,480 @@
-# WIP, no readme yet
+# Fast-Spark-TTS Custom API
 
-https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF
----
-# FastTTS 语音合成与克隆平台 🔊
+An OpenAI-compatible Text-to-Speech API server for SparkTTS with advanced voice cloning, validation, and intelligent text processing capabilities. It works on both CUDA gpus and Apple Silicon!
+Fully functional, but code is messy and beta-quality.
 
-[中文](README.MD) | [English](README_EN.MD)
+## Overview
 
-> 🚀 **FastTTS** - 基于SparkTTS、OrpheusTTS、MegaTTS3等模型，提供高质量中文语音合成与声音克隆服务。通过简单易用的Web界面，让您轻松创建自然逼真的人声，满足各种场景需求。
+This project provides a production-ready OpenAI-compatible TTS API built on top of SparkTTS. It transforms the original SparkTTS into a seamless drop-in replacement for OpenAI's TTS service, making it compatible with applications like [SillyTavern](https://github.com/SillyTavern/SillyTavern) and other OpenAI TTS clients.
 
-> 如果项目对您有帮助，欢迎给项目点个star。
+### Key Features
 
-## ✨ 特性
+- **OpenAI Compatibility**: Full compatibility with OpenAI's `/v1/audio/speech` API endpoint
+- **Advanced Voice Cloning**: Zero-shot voice cloning using reference audio samples (5-20 seconds)
+- **Intelligent Text Processing**: Semantic text splitting to handle unlimited text length
+- **Audio Validation**: Optional Whisper-based validation to ensure quality output
+- **Multiple Backends**: Support for llama-cpp for inference
+- **Smart Retry Logic**: Automatic retry for failed segments with quality control
+- **Flexible Audio Formats**: Support for MP3, WAV, OPUS, FLAC, AAC, and PCM formats
+- **Production Features**: Silence trimming, semantic segmentation, and robust error handling
 
-- 🚀 **多种后端加速**: 支持`vllm`、`sglang`、`llama cpp`、`mlx-lm` 多种加速策略
-- 🎯 **高并发**: 采用动态批处理，极大提高并发
-- 🎛️ **全参数控制**: 音调、语速、音色温度等全方位可调
-- 📱 **轻量部署**: 最小依赖，基于Flask和fastapi快速启动
-- 🎨 **简洁界面**: 标准的现代化UI
-- 🔊 **长文本语音合成**: 实现超长文本语音合成，并保持音色一致性。
-- 🔄 **支持流式语音合成**: 实现实时语音合成，边生成边播放，降低等待时间，提升交互体验
-- 🎭 **多角色语音合成**: 支持多角色语音合成，可应用于剧本对话合成。
+## Hardware Requirements
 
-## 🖼️ 使用示例
+- **VRAM**: ~8.5 GB
+- **Performance**: Larger GPUs will achieve faster than real-time generation
+- **CPU**: GPU recommended, but can run on CPU only.
 
-https://github.com/user-attachments/assets/ab7ca580-45b3-41ba-acfd-b2f68ff62948
+## Installation
 
-## 🛠️ 快速开始
+### Prerequisites
 
-### 环境要求
+- Python 3.11 or 3.12
+- CUDA-compatible GPU (recommended) or Apple Silicon with MPS support
+- Git (for cloning)
 
-- Python 3.10+
-- fastapi
-- vllm 或 sglang 或 llama-cpp
-
-### 下载权重
-
-|            模型             |                                                                                                             huggingface                                                                                                              |                                        modelscope                                         |                                       gguf                                       |
-|:-------------------------:|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
-|         Spark-TTS         |                                                                            [SparkAudio/Spark-TTS-0.5B](https://huggingface.co/SparkAudio/Spark-TTS-0.5B)                                                                             |    [SparkAudio/Spark-TTS-0.5B](https://modelscope.cn/models/SparkAudio/Spark-TTS-0.5B)    |    [SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)    | 
-|        Orpheus-TTS        |                                  [canopylabs/orpheus-3b-0.1-ft](https://huggingface.co/canopylabs/orpheus-3b-0.1-ft) & [hubertsiuzdak/snac_24khz](https://huggingface.co/hubertsiuzdak/snac_24khz)                                   | [canopylabs/orpheus-3b-0.1-ft](https://modelscope.cn/models/canopylabs/orpheus-3b-0.1-ft) | [orpheus-gguf](https://huggingface.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF) | 
-| Orpheus-TTS(Multilingual) | [orpheus-multilingual-research-release](https://huggingface.co/collections/canopylabs/orpheus-multilingual-research-release-67f5894cd16794db163786ba)  & [hubertsiuzdak/snac_24khz](https://huggingface.co/hubertsiuzdak/snac_24khz) |                                             -                                             |                                        -                                         |
-|         MegaTTS3          |                                                                                   [ByteDance/MegaTTS3](https://huggingface.co/ByteDance/MegaTTS3)                                                                                    |                                             -                                             |                                        -                                         |
-
-### 安装依赖
+### Step 1: Clone Repository
 
 ```bash
+git clone https://github.com/your-repo/Fast-Spark-TTS-custom-api
+cd Fast-Spark-TTS-custom-api
+```
+
+### Step 2: Environment Setup
+
+**Option A: Conda (Recommended)**
+```bash
+conda create -n sparktts python=3.12 -y
+conda activate sparktts
 pip install -r requirements.txt
 ```
 
-推理引擎安装 (按需求安装一个即可，若是使用torch推理，则可以跳过)
+**Option B: Virtual Environment**
+```bash
+python3.12 -m venv ./venv
+source ./venv/bin/activate  # On Windows: .\venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-- **vLLM**
+### Step 3: Download Model
 
-  vllm版本需要大于`0.7.2`
-    ```bash
-    pip install vllm
-    ```
-  具体参考链接：https://github.com/vllm-project/vllm
-
-
-- **llama-cpp**
-    ```bash
-    pip install llama-cpp-python
-    ```
-
-  可以从[下载权重](#下载权重)下载已经转好的gguf权重。spark-tts请将下载后的权重放至模型子目录`LLM`
-  下，orpheus-tts放至模型目录下。如果想要自行转换，请使用`convert_hf_to_gguf.py`脚本转换权重，操作方式如下：
-
-    ```bash
-    git clone https://github.com/ggml-org/llama.cpp.git
-    
-    cd llama.cpp
-    
-    python convert_hf_to_gguf.py Spark-TTS-0.5B/LLM --outfile Spark-TTS-0.5B/LLM/model.gguf
-    ```
-
-- **sglang**
-
-    ```bash
-    pip install sglang
-    ```
-
-  具体参考链接：https://github.com/sgl-project/sglang
-
-
-- **mlx-lm**
-
-  在Apple Silicon上运行大型语言模型，适用于MacOS。
-    ```bash
-    pip install mlx-lm
-    ```
-  具体参考链接：https://github.com/ml-explore/mlx-lm
-
-### 启动
-
-1. 克隆项目仓库
+Download the SparkTTS model using huggingface-cli:
 
 ```bash
-git clone https://github.com/HuiResearch/Fast-Spark-TTS.git
-cd Fast-Spark-TTS
+# Install huggingface-hub if not already installed
+pip install huggingface-hub
+
+# Download model to the models directory
+huggingface-cli download SparkAudio/Spark-TTS-0.5B --local-dir "models/Spark-TTS-0.5B"
 ```
 
-2. 启动SparkTTS API服务
+### Step 4: Optional Dependencies
 
-`backend`可根据自己的环境，选择对应的推理引擎。目前支持`torch`、`vllm`、`sglang`、`llama-cpp`、`mlx-lm`。
+**FFmpeg (Recommended for MP3 support)**
+- **Ubuntu/Debian**: `sudo apt install ffmpeg`
+- **macOS**: `brew install ffmpeg`
+- **Windows**: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
+
+**For Validation Features**
+The server includes Whisper-based validation. Dependencies are included in `requirements.txt`.
+
+## Quick Start
+
+### Basic Server (Voice Cloning)
+
+Start the server with a reference voice for cloning:
 
 ```bash
-python server.py \
---model_path Spark-TTS-0.5B \  # 可修改为自己的模型地址
---backend vllm \  # vllm、sglang、torch、llama-cpp、mlx-lm任选一个
---llm_device cuda \
---tokenizer_device cuda \
---detokenizer_device cuda \
---wav2vec_attn_implementation sdpa \
---llm_attn_implementation sdpa \  # 如果使用torch engine，最好开启加速
---torch_dtype "bfloat16" \   # 对于spark-tts模型，不支持bfloat16的设备，只能设置为float32.
---max_length 32768 \
---llm_gpu_memory_utilization 0.6 \
---host 0.0.0.0 \
---port 8000
+python tts_server_fast_validation.py --prompt_audio "path/to/your/voice.wav"
 ```
 
-在浏览器中访问页面
+### Server with Configured Voice
 
-```
-http://localhost:8000
-```
+Start with specific voice parameters (no cloning):
 
-查看api文档
-
-```
-http://localhost:8000/docs
+```bash
+python tts_server_fast_validation.py --gender male --pitch moderate --speed moderate
 ```
 
-## 🚀 使用指南
+### Server with Validation
 
-### 语音合成
+Enable Whisper validation for quality assurance:
 
-1. 切换到「语音合成」标签页
-2. 输入需要转换为语音的文本
-3. 调整性别、音调、语速等参数
-4. 点击「生成语音」按钮
-5. 等待生成完成后即可播放或下载
+```bash
+python tts_server_fast_validation.py --prompt_audio "voice.wav" --validate --validation_threshold 0.85
+```
 
-### 声音克隆
+## API Usage
 
-1. 切换到「声音克隆」标签页
-2. 输入目标文本
-3. 上传参考音频
-4. 输入参考音频对应的文本
-5. 调整参数
-6. 点击「克隆声音」按钮
-7. 等待克隆完成后即可播放或下载
+### OpenAI Compatible Endpoint
 
-### 角色克隆
+The server provides a standard OpenAI-compatible endpoint:
 
-1. 切换到「角色克隆」标签页
-2. 输入目标文本
-3. 选择自己喜欢的角色
-4. 调整参数
-5. 点击「角色克隆」按钮
-6. 等待克隆完成后即可播放或下载
+**Endpoint**: `POST http://localhost:9991/v1/audio/speech`
 
-## 推理速度
+**Request Format**:
+```json
+{
+    "model": "tts-1",
+    "input": "Hello, this is a test of the speech synthesis system.",
+    "response_format": "mp3"
+}
+```
 
-- 显卡：`A800`
-- 模型：`Spark-TTS-0.5B`
-- 测试使用参数和评测方式可参考[speed_test.py](speed_test.py)
-- 输出音频长度(audio len)、推理耗时(cost time)单位都为秒。
-- 评测包括长文本和短文本场景。
-- 官方代码未评测，如有需求，可自行评测。
+**cURL Example**:
+```bash
+curl -X POST "http://localhost:9991/v1/audio/speech" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "tts-1",
+    "input": "Hello world!",
+    "response_format": "mp3"
+  }' \
+  --output speech.mp3
+```
 
-| 场景  |  engine   | device | audio len | cost time |  RTF  |
-|:---:|:---------:|:------:|:---------:|:---------:|:-----:|
-| 短文本 | llama-cpp |  cpu   |   7.48    |   6.808   | 0.910 |
-| 短文本 |   torch   |  gpu   |   7.18    |   7.675   | 1.069 |
-| 短文本 |   vllm    |  gpu   |   7.24    |   1.664   | 0.230 |
-| 短文本 |  sglang   |  gpu   |   7.58    |   1.073   | 0.142 |
-| 长文本 | llama-cpp |  cpu   |  121.98   |  117.828  | 0.966 |
-| 长文本 |   torch   |  gpu   |   113.7   |  107.167  | 0.943 |
-| 长文本 |   vllm    |  gpu   |  111.82   |   7.282   | 0.065 |
-| 长文本 |  sglang   |  gpu   |  117.02   |   4.197   | 0.036 |
-
-## 本地使用
-
-1. SparkTTS使用示例：
+### Python Client Example
 
 ```python
-from fast_tts import AutoEngine
-import asyncio
+import requests
 
+response = requests.post(
+    "http://localhost:9991/v1/audio/speech",
+    json={
+        "model": "tts-1",
+        "input": "Hello, this is SparkTTS!",
+        "response_format": "mp3"
+    }
+)
 
-async def main():
-    engine = AutoEngine(
-        model_path="checkpoints/Spark-TTS-0.5B",
-        max_length=32768,
-        backend="vllm"
-    )
-    wav = await engine.generate_voice_async(
-        text="这是一条测试文本。",
-        gender="female",
-        temperature=0.9,
-        top_p=0.95,
-        top_k=50,
-        max_tokens=512,
-        repetition_penalty=1.0,  # 重复惩罚，如果大于1.0，降低重复token生成的概率。可避免长时间静音token生成
-        length_threshold=50,  # 长度阈值，长度大于该值的文本将被切分成多个片段合成，避免长文本合成漏音等问题
-        window_size=50,  # 长文本切分后的片段长度
-    )
-    engine.write_audio(wav, "test.wav")
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
+with open("output.mp3", "wb") as f:
+    f.write(response.content)
 ```
 
-2. OrpheusTTS使用示例：
-
-目前效果不太稳定
+### Using with OpenAI Client
 
 ```python
-from fast_tts import AutoEngine
-import asyncio
+from openai import OpenAI
 
+client = OpenAI(
+    base_url="http://localhost:9991/v1",
+    api_key="not-needed"
+)
 
-async def main():
-    engine = AutoEngine(
-        model_path="checkpoints/3b-zh-ft-research_release",
-        snac_path="checkpoints/snac_24khz",
-        max_length=8192,
-        backend="vllm"
-    )
-    wav = await engine.speak_async(
-        name="长乐",
-        text="我是长乐啦。",
-        temperature=0.9,
-        top_p=0.95,
-        top_k=50,
-        max_tokens=512,
-        repetition_penalty=1.0,  # 重复惩罚，如果大于1.0，降低重复token生成的概率。可避免长时间静音token生成
-        length_threshold=50,  # 长度阈值，长度大于该值的文本将被切分成多个片段合成，避免长文本合成漏音等问题
-        window_size=50,  # 长文本切分后的片段长度
-    )
-    engine.write_audio(wav, "test.wav")
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
+with client.audio.speech.with_streaming_response.create(
+    model="tts-1",
+    voice="default",
+    input="Hello from SparkTTS!"
+) as response:
+    response.stream_to_file("speech.mp3")
 ```
 
-OrpheusTTS模型可使用的音色 name 请参考：[orpheus_engine.py](fast_tts/engine/orpheus_engine.py)
+## Command Line Options
 
-3. MegaTTS3使用示例
+### Server Configuration
 
-```python
-from fast_tts import AsyncMega3Engine
-import asyncio
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--host` | Host to run the server on | `127.0.0.1` |
+| `--port` | Port to run the server on | `9991` |
+| `--device` | Device for model inference (`default`, `cuda:0`, `cpu`) | `default` |
+| `--model_dir` | Path to the SparkTTS model directory | `models/Spark-TTS-0.5B` |
 
+### Voice Configuration
 
-async def main():
-    engine = AsyncMega3Engine(
-        model_path="checkpoints/MegaTTS3",
-        backend="vllm",
-        tokenizer_device='cuda',
-        torch_dtype='float16'
-    )
-    audio = await engine.clone_voice_async(
-        text="另一边的桌上,一位读书人嗤之以鼻道,'佛子三藏,神子燕小鱼是什么样的人物,李家的那个李子夜如何与他们相提并论？",
-        # mega tts模型的参考音频是一个元组，需要传入wav文件和编码后的npy文件  
-        reference_audio=("checkpoints/Chinese_prompt.wav", "checkpoints/Chinese_prompt.npy"),
-        max_tokens=512
-    )
-    engine.write_audio(audio, 'res.wav')
+| Option | Description | Choices |
+|--------|-------------|---------|
+| `--prompt_audio` | Path to audio file for voice cloning | - |
+| `--prompt_text` | Transcript text for prompt audio (optional) | - |
+| `--gender` | Gender parameter (when not using cloning) | `male`, `female` |
+| `--pitch` | Pitch level | `very_low`, `low`, `moderate`, `high`, `very_high` |
+| `--speed` | Speed level | `very_low`, `low`, `moderate`, `high`, `very_high` |
+| `--seed` | Random seed for reproducible generation | - |
 
+### Text Processing
 
-if __name__ == '__main__':
-    asyncio.run(main())
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--seg_threshold` | Character limit for text segments | `400` |
+| `--allow_allcaps` | Allow words with all capital letters | `False` |
+
+### Validation Features
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--validate` | Enable Whisper validation of generated audio | `False` |
+| `--validation_threshold` | Similarity threshold for validation (0-1) | `0.85` |
+
+## Voice Cloning
+
+### Creating Reference Audio
+
+For optimal voice cloning results:
+
+1. **Audio Requirements**:
+   - 5-20 seconds duration
+   - Clear, noise-free audio
+   - Single speaker, continuous speech
+   - WAV format recommended (other formats may work)
+
+2. **Best Practices**:
+   - Use a complete sentence or paragraph
+   - Avoid background music or noise
+   - Ensure consistent volume
+   - Record in good quality (16kHz+ sample rate)
+
+### Voice Sample Examples
+
+The following voice samples demonstrate the quality and variety achievable with SparkTTS. These can serve as reference for the types of voices you can clone or generate.
+
+These files are included, and are ready to be used to generate. To use them, input the file after `--prompt_audio`
+
+**Provided Voice Descriptions**:
+- **female1.wav**: melancholy, rainy
+- **female2.wav**: confident, expressive
+- **female3.wav**: anime VA, cutesy, kinda sad, amazed
+- **female4.wav**: clean, light, a touch of mystery
+- **male1.wav**: cute, super expressive, adventurous
+- **male2.wav**: determined, focused
+- **male3.wav**: surprised, best for short bursts
+- **male4.wav**: deep, rich, noir, serious
+- **male5.wav**: alternate version of male4.wav, expressive, deep, rich, engaging
+
+---
+
+<table>
+<tr>
+<td align="center">
+    
+**Female 1**
+</td>
+<td align="center">
+    
+**Female 2**
+</td>
+</tr>
+
+<tr>
+<td align="center">
+
+[female1.webm](https://github.com/user-attachments/assets/f859e295-a290-49be-8c69-f793bf69e3e0)
+
+</td>
+<td align="center">
+    
+[female2.webm](https://github.com/user-attachments/assets/77488785-5d48-477b-a2d4-33db4abe95fd)
+
+</td>
+</tr>
+</table>
+
+---
+
+<table>
+<tr>
+<td align="center">
+    
+**Female 3**
+</td>
+<td align="center">
+    
+**Female 4**
+</td>
+</tr>
+
+<tr>
+<td align="center">
+
+[female3.webm](https://github.com/user-attachments/assets/d84cb42e-6a1c-49de-a397-606e0fafbd82)
+
+</td>
+<td align="center">
+    
+[female4.webm](https://github.com/user-attachments/assets/1c931e30-8669-4f55-addd-e21ab94687e5)
+
+</td>
+</tr>
+</table>
+
+---
+
+<table>
+<tr>
+<td align="center">
+    
+**Male 1**
+</td>
+<td align="center">
+    
+**Male 2**
+</td>
+</tr>
+
+<tr>
+<td align="center">
+
+[male1.webm](https://github.com/user-attachments/assets/c29ba86c-9394-4b28-bcf6-1b24c02dbf02)
+
+</td>
+<td align="center">
+    
+[male2.webm](https://github.com/user-attachments/assets/d79030ec-ffdc-437f-8333-0b6010e6d374)
+
+</td>
+</tr>
+</table>
+
+---
+
+<table>
+<tr>
+<td align="center">
+    
+**Male 3**
+</td>
+<td align="center">
+    
+**Male 4**
+</td>
+</tr>
+
+<tr>
+<td align="center">
+
+[male3.webm](https://github.com/user-attachments/assets/3bc720d6-286e-4904-8d57-fdea3055c288)
+
+</td>
+<td align="center">
+    
+[male4.webm](https://github.com/user-attachments/assets/da9ff132-3508-46c0-ba4c-1c0658a0624d)
+
+</td>
+</tr>
+</table>
+
+---
+
+<table>
+<tr>
+<td align="center">
+    
+**Male 5**
+</td>
+<td align="center">
+    
+**Additional Voices**
+</td>
+</tr>
+
+<tr>
+<td align="center">
+
+[male5.webm](https://github.com/user-attachments/assets/ad830d60-a493-4736-a7da-49480c3d0190)
+
+</td>
+<td align="center">
+
+More voices can be created through cloning
+
+</td>
+</tr>
+</table>
+
+---
+
+### Second-Generation Cloning
+
+For even better results, use a two-step process:
+
+1. Generate audio with your reference voice
+2. Select the best result that captures the desired accent/tone
+3. Use that generated audio as the new reference for future generations
+
+**Example phrase for testing**:
+```
+In these days of skeptical enlightened civilization one cannot claim to have seen a sea serpent and expect anything but laughter. And this was even more incredible.
 ```
 
-4. 具体使用方法参考 [inference.py](inference.py)
+## Integration Examples
 
-## 使用提示
+### SillyTavern Setup
 
-- `SparkTTS`模型权重量化为`float16`无法使用，`torch_dtype`请设置为`bfloat16`或`float32`。
-- 如果出现长空白音，可尝试调整`repetition_penalty`参数，大于`1.0`会降低重复token生成的概率，可避免长时间静音`token`生成(
-  SparkTTS的静音token id为`163406`)。
-- `OrpheusTTS`支持emotion tag，直接在文本中添加`<tag>`
-  即可实现。每个模型支持的tag标签请参考：[orpheus_engine.py](fast_tts/engine/orpheus_engine.py) 中 LANG_MAP
-- 出于安全考虑，`MegaTTS3`
-  团队未上传WaveVAE编码器参数。因此，只能从此处链接下载参考音频进行推理：[参考音频](https://drive.google.com/drive/folders/1QhcHWcy20JfqWjgqZX1YM3I6i9u4oNlr)
-  。如果需要使用自己的音频，请参考MegaTTS3项目的说明：[MegaTTS3](https://github.com/bytedance/MegaTTS3/tree/main?tab=readme-ov-file#inference)
+1. In SillyTavern, go to Extensions → TTS
+2. Set TTS Provider to "OpenAI"
+3. Set API URL to: `http://localhost:9991/v1`
+4. Enable "Narrate by paragraphs (when not streaming)" for better performance
 
-## Reference
+### Open-WebUI Setup
 
-1. [Spark-TTS](https://github.com/SparkAudio/Spark-TTS)
-2. [Orpheus-TTS](https://github.com/canopyai/Orpheus-TTS)
-3. [MegaTTS3](https://github.com/bytedance/MegaTTS3)
+1. In Open-WebUI admin panel, go to "Audio"
+2. Set TTS provider to: `http://localhost:9991/v1`
+3. Set "response splitting" to "paragraphs"
 
-## ⚠️ 免责声明
+## Advanced Configuration
 
-该项目提供了零样本语音克隆 TTS 模型，旨在用于学术研究、教育目的和合法应用，例如个性化语音合成、辅助技术和语言研究。
+### Multiple Server Instances
 
-请注意：
+Run different instances for different voices:
 
-- 请勿将此模型用于未经授权的语音克隆、冒充、欺诈、诈骗、深度伪造或任何非法活动。
+```bash
+# Female voice server on port 9991
+python tts_server_fast_validation.py --prompt_audio "female_voice.wav" --port 9991
 
-- 确保使用此模型时遵守当地的法律法规并遵守道德标准。
+# Male voice server on port 9992  
+python tts_server_fast_validation.py --prompt_audio "male_voice.wav" --port 9992
+```
 
-- 开发人员对于此模型的任何误用不承担任何责任。
+### Performance Tuning
 
-本项目提倡负责任地开发和使用人工智能，并鼓励社区在人工智能研究和应用中坚持安全和道德原则。
+- **Reduce segment threshold** for faster initial response: `--seg_threshold 200`
+- **Enable validation** for quality assurance: `--validate --validation_threshold 0.85`
+- **Use fixed seed** for consistent results: `--seed 42`
 
-## 许可协议与致谢
+## Troubleshooting
 
-本项目基于 [Spark-TTS](https://github.com/SparkAudio/Spark-TTS) 构建，并采用与 SparkTTS
-相同的开源许可协议进行分发。详情请参阅原始 [SparkTTS 许可协议](https://github.com/SparkAudio/Spark-TTS/blob/main/LICENSE)。
+### Common Issues
 
-## Star History
+1. **Model Not Found**: Ensure the model is downloaded to `models/Spark-TTS-0.5B`
+2. **CUDA Out of Memory**: Reduce batch size or use a smaller model
+3. **Audio Quality Issues**: Enable validation with `--validate`
+4. **Slow Performance**: Check GPU utilization and consider reducing `seg_threshold`
 
-[![Star History Chart](https://api.star-history.com/svg?repos=HuiResearch/Fast-Spark-TTS&type=Date)](https://www.star-history.com/#HuiResearch/Fast-Spark-TTS&Date)
+### Validation Failures
+
+If validation is enabled and segments are being retried:
+- Check reference audio quality
+- Adjust `--validation_threshold` (lower = more permissive)
+- Ensure the reference voice matches the target language
+
+### Audio Format Issues
+
+- MP3 conversion requires FFmpeg
+- If FFmpeg is unavailable, the server will fall back to WAV format
+- PCM format returns raw audio data without headers
+
+## Performance Notes
+
+- **Concurrent Requests**: Supported but not as stable as single-user mode
+- **Streaming**: Not yet implemented (generates complete audio before sending)
+- **Memory Usage**: ~8.5 GB VRAM for the model
+- **Speed**: ~2x real-time on RTX 3060, faster on more powerful GPUs
+
+## License and Acknowledgments
+
+This project is built upon [Spark-TTS](https://github.com/SparkAudio/Spark-TTS) and maintains compatibility with the original SparkTTS license. Special thanks to [@AcTePuKc](https://github.com/AcTePuKc) for foundational inference work.
+
+### Usage Disclaimer
+
+This project provides a zero-shot voice cloning TTS model intended for academic research, educational purposes, and legitimate applications such as personalized speech synthesis, assistive technologies, and language research.
+
+**Please note:**
+- Do not use this model for unauthorized voice cloning, impersonation, fraud, scams, deep fakes, or any other illegal activities
+- Ensure that you comply with local laws and ethical standards when using this model
+- The developers are not responsible for any misuse of this model
+
+This project advocates responsible AI development and use, and encourages the community to uphold safety and ethical principles in AI research and applications.
+
+## Related Projects
+
+- **Original SparkTTS**: [SparkAudio/Spark-TTS](https://github.com/SparkAudio/Spark-TTS)
+- **FastTTS Platform**: [HuiResearch/Fast-Spark-TTS](https://github.com/HuiResearch/Fast-Spark-TTS)
+- **Quantized Models**: [mradermacher/SparkTTS-LLM-GGUF](https://huggingface.co/mradermacher/SparkTTS-LLM-GGUF)
