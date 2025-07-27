@@ -106,6 +106,14 @@ The server includes Whisper-based validation. Dependencies are included in `requ
 
 ## Quick Start
 
+### Server with Validation (Recommended)
+
+Enable Whisper validation for quality assurance (will download whisper-tiny model):
+
+```bash
+python tts_server_fast_validation.py --prompt_audio "voice.wav" --validate --validation_threshold 0.85
+```
+
 ### Basic Server (Voice Cloning)
 
 Start the server with a reference voice for cloning:
@@ -122,13 +130,6 @@ Start with specific voice parameters (no cloning):
 python tts_server_fast_validation.py --gender male --pitch moderate --speed moderate
 ```
 
-### Server with Validation
-
-Enable Whisper validation for quality assurance:
-
-```bash
-python tts_server_fast_validation.py --prompt_audio "voice.wav" --validate --validation_threshold 0.85
-```
 
 ## API Usage
 
