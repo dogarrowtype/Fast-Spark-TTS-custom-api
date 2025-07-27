@@ -9,9 +9,11 @@ from .base_llm import BaseLLM, GenerationResponse
 def _check_cuda_availability():
     """Check if CUDA is available for llama-cpp-python"""
     try:
-        import llama_cpp
+        from llama_cpp import _load_shared_library
         # Check if llama-cpp was compiled with CUDA support
-        return hasattr(llama_cpp.llama_cpp, 'GGML_USE_CUBLAS') or hasattr(llama_cpp.llama_cpp, 'GGML_USE_CUDA')
+        #return hasattr(llama_cpp.llama_cpp, 'GGML_USE_CUBLAS') or hasattr(llama_cpp.llama_cpp, 'GGML_USE_CUDA')
+        lib = _load_shared_library('llama')
+        return bool(lib.llama_supports_gpu_offload())
     except (ImportError, AttributeError):
         return False
 
