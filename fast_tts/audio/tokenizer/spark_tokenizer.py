@@ -68,14 +68,24 @@ class SparkTokenizer:
             batch_size: int = 32,
             wait_timeout: float = 0.01,
     ):
-        self.device = torch.device(device)
+        # Validate and set device with better error handling
+        try:
+            self.device = torch.device(device)
+            logger.info(f"SparkTokenizer initialized with device: {self.device}")
+        except Exception as e:
+            logger.error(f"Invalid device '{device}' for SparkTokenizer: {e}, falling back to CPU")
+            self.device = torch.device("cpu")
+            
         wav2vec_path = os.path.join(model_path, "wav2vec2-large-xlsr-53")
         
-        # Enhanced model loading with CUDA optimizations
+        # Enhanced model loading with device-specific optimizations
         model_kwargs = {"attn_implementation": attn_implementation}
         if self.device.type == "cuda":
             # Remove torch_dtype to avoid mixed precision issues
             model_kwargs["low_cpu_mem_usage"] = True
+            logger.info("Applying CUDA optimizations for SparkTokenizer")
+        else:
+            logger.info(f"Using {self.device.type} mode for SparkTokenizer")
             
         self.wav2vec2 = Wav2Vec2Model.from_pretrained(
             wav2vec_path,

@@ -94,6 +94,11 @@ class LlamaCppGenerator(BaseLLM):
                 n_ctx=max_length,
                 n_gpu_layers=n_gpu_layers,
                 verbose=False,  # Suppress debug output
+                # CPU-specific optimizations
+                n_threads=None,  # Use all available cores
+                n_batch=512,     # Smaller batch for CPU
+                use_mlock=False,  # Don't lock memory
+                use_mmap=True,   # Use memory mapping
                 **kwargs
             )
         elif device.startswith('cuda'):
@@ -130,12 +135,22 @@ class LlamaCppGenerator(BaseLLM):
                 verbose=False,  # Suppress debug output
                 **kwargs
             )
-        self.model = Llama(
-            **runtime_kwargs
-        )
+        try:
+            self.model = Llama(
+                **runtime_kwargs
+            )
+            
+            # Store device information for reporting
+            self.device_info = device
+            logger.info(f"LlamaCppGenerator successfully initialized with device: {device}")
+            
+            # Verify CUDA usage if a CUDA device was requested
+            _verify_cuda_usage(self.model, device, n_gpu_layers)
+        except Exception as e:
+            logger.error(f"Failed to initialize LlamaCppGenerator with device '{device}': {e}")
+            self.device_info = "unknown"
+            raise
         
-        # Verify CUDA usage if a CUDA device was requested
-        _verify_cuda_usage(self.model, device, n_gpu_layers)
         # 不使用llama cpp 的 tokenizer
         super(LlamaCppGenerator, self).__init__(
             tokenizer=model_path,
@@ -143,6 +158,10 @@ class LlamaCppGenerator(BaseLLM):
             stop_tokens=stop_tokens,
             stop_token_ids=stop_token_ids,
         )
+    
+    def get_device_info(self) -> str:
+        """Return device information for logging and debugging."""
+        return getattr(self, 'device_info', 'unknown')
 
     async def _generate(
             self,
@@ -156,27 +175,48 @@ class LlamaCppGenerator(BaseLLM):
             **kwargs
     ) -> GenerationResponse:
         completion_tokens = []
-        for token in self.model.generate(
-                prompt_ids,
-                top_k=top_k,
-                top_p=top_p,
-                temp=temperature,
-                repeat_penalty=repetition_penalty,
-                **kwargs
-        ):
-            if token in self.stop_token_ids:
-                break
+        
+        logger.debug(f"LlamaCpp generation with params: temp={temperature}, top_k={top_k}, top_p={top_p}, max_tokens={max_tokens}")
+        
+        try:
+            # Use correct llama-cpp API
+            for token in self.model.generate(
+                    prompt_ids,
+                    top_k=top_k,
+                    top_p=top_p,
+                    temp=temperature,
+                    repeat_penalty=repetition_penalty,
+                    **kwargs
+            ):
+                if token in self.stop_token_ids:
+                    logger.debug(f"Hit stop token: {token}")
+                    break
 
-            if len(completion_tokens) + len(prompt_ids) > self.max_length:
-                break
-            completion_tokens.append(token)
+                if len(completion_tokens) >= max_tokens:
+                    logger.debug(f"Hit max_tokens limit: {max_tokens}")
+                    break
+                    
+                if len(completion_tokens) + len(prompt_ids) > self.max_length:
+                    logger.debug(f"Hit context length limit: {self.max_length}")
+                    break
+                completion_tokens.append(token)
 
-        # Decode the generated tokens into text
-        output = self.tokenizer.decode(
-            completion_tokens,
-            skip_special_tokens=skip_special_tokens
-        )
-        return GenerationResponse(text=output, token_ids=completion_tokens)
+            # Decode the generated tokens into text
+            output = self.tokenizer.decode(
+                completion_tokens,
+                skip_special_tokens=skip_special_tokens
+            )
+            
+            logger.debug(f"Generated {len(completion_tokens)} tokens, output length: {len(output)}")
+            if len(output) < 100:  # Log short outputs for debugging
+                logger.debug(f"Generated text: {output}")
+                
+            return GenerationResponse(text=output, token_ids=completion_tokens)
+            
+        except Exception as e:
+            logger.error(f"Error during LlamaCpp generation: {e}")
+            # Return empty response on error
+            return GenerationResponse(text="", token_ids=[])
 
     async def _stream_generate(
             self,

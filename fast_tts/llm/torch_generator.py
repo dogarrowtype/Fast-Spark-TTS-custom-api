@@ -16,6 +16,9 @@ from transformers import (
 import uuid
 from typing import TYPE_CHECKING, Optional
 from queue import Queue
+from ..logger import get_logger
+
+logger = get_logger()
 
 if TYPE_CHECKING:
     from transformers import AutoTokenizer
@@ -127,48 +130,63 @@ class TorchGenerator(BaseLLM):
                  stop_tokens: Optional[list[str]] = None,
                  stop_token_ids: Optional[List[int]] = None,
                  **kwargs):
-        self.device = torch.device(device)
-        self.cache_implementation = cache_implementation
+       try:
+           self.device = torch.device(device)
+           self.device_info = str(self.device)
+           self.cache_implementation = cache_implementation
 
-        # Enhanced CUDA configuration - more conservative approach
-        runtime_kwargs = dict(
-            pretrained_model_name_or_path=model_path,
-            torch_dtype=getattr(torch, torch_dtype, "auto"),
-            attn_implementation=attn_implementation,
-            **kwargs
-        )
-        
-        # Add CUDA-specific optimizations (more conservative)
-        if self.device.type == "cuda":
-            # Only add device_map if no specific device is requested
-            if not device.startswith("cuda:"):
-                runtime_kwargs["device_map"] = "auto"
-            # Enable optimized attention if available
-            #if torch_dtype in ["float16", "bfloat16"]:
-            #    runtime_kwargs["low_cpu_mem_usage"] = True
+           logger.info(f"TorchGenerator initializing with device: {self.device}")
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            **runtime_kwargs
-        )
-        self.model.eval()
-        
-        # Move to device if not using device_map
-        if "device_map" not in runtime_kwargs:
-            self.model.to(self.device)
-        
-        # Enable CUDA optimizations (conservative)
-        if self.device.type == "cuda":
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
+           # Enhanced CUDA configuration - more conservative approach
+           runtime_kwargs = dict(
+               pretrained_model_name_or_path=model_path,
+               torch_dtype=getattr(torch, torch_dtype, "auto"),
+               attn_implementation=attn_implementation,
+               **kwargs
+           )
+           
+           # Add CUDA-specific optimizations (more conservative)
+           if self.device.type == "cuda":
+               # Only add device_map if no specific device is requested
+               if not device.startswith("cuda:"):
+                   runtime_kwargs["device_map"] = "auto"
+               # Enable optimized attention if available
+               #if torch_dtype in ["float16", "bfloat16"]:
+               #    runtime_kwargs["low_cpu_mem_usage"] = True
 
-        self.streamer: dict[str, ResIteratorStreamer] = {}
+           self.model = AutoModelForCausalLM.from_pretrained(
+               **runtime_kwargs
+           )
+           self.model.eval()
+           
+           # Move to device if not using device_map
+           if "device_map" not in runtime_kwargs:
+               self.model.to(self.device)
+           
+           # Enable CUDA optimizations (conservative)
+           if self.device.type == "cuda":
+               torch.backends.cuda.matmul.allow_tf32 = True
+               torch.backends.cudnn.allow_tf32 = True
 
-        super(TorchGenerator, self).__init__(
-            tokenizer=model_path,
-            max_length=max_length,
-            stop_tokens=stop_tokens,
-            stop_token_ids=stop_token_ids,
-        )
+           self.streamer: dict[str, ResIteratorStreamer] = {}
+           
+           logger.info(f"TorchGenerator successfully initialized with device: {self.device}")
+
+       except Exception as e:
+           logger.error(f"Failed to initialize TorchGenerator with device '{device}': {e}")
+           self.device_info = "unknown"
+           raise
+
+       super(TorchGenerator, self).__init__(
+           tokenizer=model_path,
+           max_length=max_length,
+           stop_tokens=stop_tokens,
+           stop_token_ids=stop_token_ids,
+       )
+   
+    def get_device_info(self) -> str:
+        """Return device information for logging and debugging."""
+        return getattr(self, 'device_info', 'unknown')
 
     async def _generate(
             self,

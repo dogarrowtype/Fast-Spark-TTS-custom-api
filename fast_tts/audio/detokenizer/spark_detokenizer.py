@@ -11,6 +11,9 @@ from ...modules.encoder_decoder.feat_decoder import Decoder
 from ...modules.encoder_decoder.wave_generator import WaveGenerator
 from ...modules.speaker.speaker_encoder import SpeakerEncoder
 from ...modules.vq.factorized_vector_quantize import FactorizedVectorQuantize
+from ...logger import get_logger
+
+logger = get_logger()
 
 __all__ = ["SparkDeTokenizer"]
 
@@ -45,15 +48,25 @@ class SparkDeTokenizer:
             device: Literal["cpu", "cuda", "mps"] | str = "cpu",
             batch_size: int = 32,
             wait_timeout: float = 0.01):
-        self.device = torch.device(device)
+        # Validate and set device with better error handling
+        try:
+            self.device = torch.device(device)
+            logger.info(f"SparkDeTokenizer initialized with device: {self.device}")
+        except Exception as e:
+            logger.error(f"Invalid device '{device}' for SparkDeTokenizer: {e}, falling back to CPU")
+            self.device = torch.device("cpu")
+            
         self.model = SparkDeTokenizerModel.from_pretrained(
             os.path.join(model_path, "BiCodec")
         ).to(self.device)
         
-        # Enable CUDA optimizations
+        # Enable device-specific optimizations
         if self.device.type == "cuda":
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
+            logger.info("Applying CUDA optimizations for SparkDeTokenizer")
+        else:
+            logger.info(f"Using {self.device.type} mode for SparkDeTokenizer")
 
         self._batch_processor = AsyncBatchEngine(
             processing_function=self.batch_detokenize_async,

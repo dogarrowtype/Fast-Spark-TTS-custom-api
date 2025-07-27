@@ -260,6 +260,20 @@ class AsyncSparkEngine(BaseEngine):
             stop_tokens=["<|end_semantic_token|>"],
             **kwargs
         )
+        
+        # Log device initialization summary
+        self._log_device_initialization()
+
+    def _log_device_initialization(self):
+        """Log device initialization details for debugging."""
+        device_summary = self.get_device_summary()
+        logger.info("=== Fast-Spark-TTS Device Initialization Summary ===")
+        logger.info(f"LLM Device: {device_summary['llm_device']}")
+        logger.info(f"LLM Backend Device: {device_summary['llm_backend_device']}")
+        logger.info(f"Tokenizer Device: {device_summary['tokenizer_device']}")
+        logger.info(f"Detokenizer Device: {device_summary['detokenizer_device']}")
+        logger.info(f"Backend: {self.generator.__class__.__name__ if hasattr(self.generator, '__class__') else 'unknown'}")
+        logger.info("=====================================================")
 
     def list_roles(self) -> list[str]:
         roles = list(self.speakers.keys())
@@ -309,8 +323,36 @@ class AsyncSparkEngine(BaseEngine):
             **kwargs
         )
         generated_output = generated_output.text
+        
+        # Enhanced debugging for CPU mode issues
+        logger.debug(f"Raw LLM output: {generated_output}")
+        logger.debug(f"LLM output length: {len(generated_output)}")
+        
+        # Check for problematic outputs
+        if generated_output.strip() == "" or generated_output.strip() == "@" * len(generated_output.strip()):
+            logger.error(f"LLM generated problematic output: '{generated_output}'")
+            logger.error("This may indicate a CPU mode compatibility issue with the model")
+            
+            # Try to get device info for debugging
+            device_summary = self.get_device_summary()
+            logger.error(f"Device summary: {device_summary}")
+            
+            err_msg = f"LLM generated invalid output in CPU mode. Output: '{generated_output}'"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        
         pred_semantic_tokens = [int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)]
         if len(pred_semantic_tokens) == 0:
+            logger.warning(f"No semantic tokens found in LLM output: {generated_output}")
+            
+            # Check if output contains any bicodec tokens at all
+            all_bicodec = re.findall(r"bicodec_\w+_(\d+)", generated_output)
+            if len(all_bicodec) == 0:
+                logger.error("No bicodec tokens found at all in LLM output")
+                logger.error("This suggests the LLM model may not be properly loaded or compatible with CPU mode")
+            else:
+                logger.error(f"Found {len(all_bicodec)} bicodec tokens but no semantic tokens")
+            
             err_msg = f"Semantic tokens 预测为空，prompt：{prompt}，llm output：{generated_output}"
             logger.error(err_msg)
             raise ValueError(err_msg)
