@@ -130,7 +130,7 @@ class TorchGenerator(BaseLLM):
         self.device = torch.device(device)
         self.cache_implementation = cache_implementation
 
-        # Enhanced CUDA configuration
+        # Enhanced CUDA configuration - more conservative approach
         runtime_kwargs = dict(
             pretrained_model_name_or_path=model_path,
             torch_dtype=getattr(torch, torch_dtype, "auto"),
@@ -138,12 +138,14 @@ class TorchGenerator(BaseLLM):
             **kwargs
         )
         
-        # Add CUDA-specific optimizations
+        # Add CUDA-specific optimizations (more conservative)
         if self.device.type == "cuda":
-            runtime_kwargs["device_map"] = "auto"
+            # Only add device_map if no specific device is requested
+            if not device.startswith("cuda:"):
+                runtime_kwargs["device_map"] = "auto"
             # Enable optimized attention if available
-            if torch_dtype in ["float16", "bfloat16"]:
-                runtime_kwargs["low_cpu_mem_usage"] = True
+            #if torch_dtype in ["float16", "bfloat16"]:
+            #    runtime_kwargs["low_cpu_mem_usage"] = True
 
         self.model = AutoModelForCausalLM.from_pretrained(
             **runtime_kwargs
@@ -154,12 +156,10 @@ class TorchGenerator(BaseLLM):
         if "device_map" not in runtime_kwargs:
             self.model.to(self.device)
         
-        # Enable CUDA optimizations
+        # Enable CUDA optimizations (conservative)
         if self.device.type == "cuda":
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
-            if hasattr(torch.backends.cuda, 'flash_sdp_enabled'):
-                torch.backends.cuda.flash_sdp_enabled = True
 
         self.streamer: dict[str, ResIteratorStreamer] = {}
 

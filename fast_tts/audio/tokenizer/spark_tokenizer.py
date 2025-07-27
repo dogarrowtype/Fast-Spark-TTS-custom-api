@@ -74,7 +74,7 @@ class SparkTokenizer:
         # Enhanced model loading with CUDA optimizations
         model_kwargs = {"attn_implementation": attn_implementation}
         if self.device.type == "cuda":
-            model_kwargs["torch_dtype"] = torch.float16
+            # Remove torch_dtype to avoid mixed precision issues
             model_kwargs["low_cpu_mem_usage"] = True
             
         self.wav2vec2 = Wav2Vec2Model.from_pretrained(
