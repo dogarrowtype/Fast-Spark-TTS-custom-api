@@ -56,7 +56,86 @@ source ./venv/bin/activate  # On Windows: .\venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Step 3: Download Model
+### Step 3: Install Dependencies
+
+First, install the core dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: System-Specific llama-cpp-python Installation
+
+The `llama-cpp-python` package must be installed separately based on your system configuration for optimal performance. Choose the appropriate installation method:
+
+#### For macOS (Apple Silicon/Intel)
+
+```bash
+pip install llama-cpp-python
+```
+
+#### For CUDA GPU Systems (For NVIDIA GPUs)
+
+**Pre-built Wheels (Easiest Method)**
+
+For systems with CUDA >=12.1 and Python 3.10-3.12:
+
+```bash
+# Replace <cuda-version> with your CUDA version
+pip install llama-cpp-python \
+  --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/<cuda-version-goes-here>
+```
+
+**CUDA Version Mapping:**
+- `cu121`: CUDA 12.1
+- `cu122`: CUDA 12.2
+- `cu123`: CUDA 12.3
+- `cu124`: CUDA 12.4
+- `cu125`: CUDA 12.5
+
+**Example for CUDA 12.1:**
+```bash
+pip install llama-cpp-python \
+  --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
+```
+Install the highest version that your system supports.
+
+**Manual CUDA Installation (Alternative)**
+```bash
+CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python
+```
+
+#### For CPU-Only Systems (install openblas)
+
+```bash
+CMAKE_ARGS="-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS" pip install llama-cpp-python
+```
+
+#### For AMD GPUs (ROCm)
+
+```bash
+CMAKE_ARGS="-DGGML_HIPBLAS=on" pip install llama-cpp-python
+```
+
+#### For Vulkan (generic gpu)
+
+```bash
+CMAKE_ARGS="-DGGML_VULKAN=on" pip install llama-cpp-python
+```
+
+#### For Other Backends
+
+For additional backends (OpenCL, etc.), see the comprehensive guide: [https://github.com/abetlen/llama-cpp-python#supported-backends](https://github.com/abetlen/llama-cpp-python#supported-backends)
+
+**Installation Verification:**
+
+After installation, verify it works correctly:
+
+```python
+python -c "from llama_cpp import Llama; print('llama-cpp-python installed successfully')"
+```
+
+### Step 5: Download Model
 
 **Option A: Using huggingface-cli (Recommended)**
 
@@ -94,7 +173,7 @@ huggingface-cli download SparkAudio/Spark-TTS-0.5B --local-dir "models/Spark-TTS
 - The downloaded `.gguf` file must be renamed to `model.gguf` in the `LLM` directory
 - F16 is good, but smaller versions will work if your application requires a smaller footprint
 
-### Step 4: Optional Dependencies
+### Step 6: Optional Dependencies
 
 **FFmpeg (Recommended for MP3 support)**
 - **Ubuntu/Debian**: `sudo apt install ffmpeg`

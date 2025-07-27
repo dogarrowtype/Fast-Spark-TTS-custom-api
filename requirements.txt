@@ -20,7 +20,7 @@ semantic_text_splitter
 tqdm
 Flask
 flask_cors
-llama-cpp-python
+# llama-cpp-python - Install separately based on your system (see README.md)
 pydub==0.25.1
 datasets
 numpy
