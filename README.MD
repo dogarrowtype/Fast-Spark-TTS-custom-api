@@ -21,7 +21,7 @@ This project provides a production-ready OpenAI-compatible TTS API built on top 
 ## Hardware Requirements
 
 - **VRAM**: ~8.5 GB
-- **Performance**: Larger GPUs will achieve faster than real-time generation
+- **Performance**: Larger GPUs will achieve faster than real-time generation. The longer the input segment is, the longer it takes to generate. No streaming, sorry. On a high end mac, it can be extremely fast. (3 seconds for 10 seconds of audio, but it varies.)
 - **CPU**: GPU recommended, but can run on CPU only.
 
 ## Installation
@@ -434,15 +434,15 @@ python tts_server_fast_validation.py --prompt_audio "male_voice.wav" --port 9992
 ### Common Issues
 
 1. **Model Not Found**: Ensure the model is downloaded to `models/Spark-TTS-0.5B`
-2. **CUDA Out of Memory**: Reduce batch size or use a smaller model
-3. **Audio Quality Issues**: Enable validation with `--validate`
-4. **Slow Performance**: Check GPU utilization and consider reducing `seg_threshold`
+2. **Audio Quality Issues (Skipping text)**: Enable validation with `--validate`
+2. **Slow Performance**: Check GPU utilization and consider reducing `seg_threshold`
 
 ### Validation Failures
 
 If validation is enabled and segments are being retried:
 - Check reference audio quality
-- Adjust `--validation_threshold` (lower = more permissive)
+- Adjust `--validation_threshold` (lower = more permissive, more prone to making mistakes).
+- Above 0.95 is too high, as it will often toss out completely fine gens as being too imperfect.
 - Ensure the reference voice matches the target language
 
 ### Audio Format Issues
@@ -460,7 +460,7 @@ If validation is enabled and segments are being retried:
 
 ## License and Acknowledgments
 
-This project is built upon [Spark-TTS](https://github.com/SparkAudio/Spark-TTS) and maintains compatibility with the original SparkTTS license. Special thanks to [@AcTePuKc](https://github.com/AcTePuKc) for foundational inference work.
+This project is built upon [Spark-TTS](https://github.com/SparkAudio/Spark-TTS) and maintains compatibility with the original SparkTTS license. Special thanks to [@AcTePuKc](https://github.com/AcTePuKc) and [HuiResearch/Fast-Spark-TTS](https://github.com/HuiResearch/Fast-Spark-TTS) for foundational work.
 
 ### Usage Disclaimer
 
