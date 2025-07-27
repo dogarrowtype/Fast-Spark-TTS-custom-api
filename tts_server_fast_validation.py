@@ -586,20 +586,33 @@ if __name__ == '__main__':
         if args.seed:
             logging.info(f"🎲 Fixed seed: {args.seed}")
 
+    # Determine appropriate device based on args
     if args.device == "default":
         # Determine appropriate device based on platform and availability
-        if platform.system() == "Darwin":
+        if platform.system() == "Darwin" and torch.backends.mps.is_available():
             # macOS with MPS support (Apple Silicon)
-            inference_device = torch.device(f"mps:0")
-            logging.info(f"Using MPS device: {inference_device}")
+            device = "mps"
+            logging.info(f"Using MPS device")
         elif torch.cuda.is_available():
             # System with CUDA support
-            inference_device = torch.device(f"cuda:0")
-            logging.info(f"Using CUDA device: {inference_device}")
+            device = "cuda"
+            logging.info(f"Using CUDA device")
         else:
             # Fall back to CPU
-            inference_device = torch.device("cpu")
+            device = "cpu"
             logging.info("GPU acceleration not available, using CPU")
+    else:
+        # Verify CUDA availability if CUDA device is requested
+        if args.device.startswith("cuda"):
+            if not torch.cuda.is_available():
+                logging.error("CUDA requested but not available. Falling back to CPU.")
+                device = "cpu"
+            else:
+                device = args.device
+                logging.info(f"Using CUDA device: {device}")
+        else:
+            device = args.device
+            logging.info(f"Using device: {device}")
 
     # Preload the model on startup if model_dir is provided
     async def startup_load_model():
@@ -612,6 +625,9 @@ if __name__ == '__main__':
                     model_path=args.model_dir,
                     max_length=GLOBAL_VOICE_PARAMS["max_generation_tokens"],
                     backend="llama-cpp",
+                    llm_device=device,
+                    tokenizer_device=device,
+                    detokenizer_device=device,
                 )
                 logging.info("Model loaded successfully")
             except Exception as e:

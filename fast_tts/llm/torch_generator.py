@@ -130,16 +130,36 @@ class TorchGenerator(BaseLLM):
         self.device = torch.device(device)
         self.cache_implementation = cache_implementation
 
+        # Enhanced CUDA configuration
         runtime_kwargs = dict(
             pretrained_model_name_or_path=model_path,
             torch_dtype=getattr(torch, torch_dtype, "auto"),
             attn_implementation=attn_implementation,
             **kwargs
         )
+        
+        # Add CUDA-specific optimizations
+        if self.device.type == "cuda":
+            runtime_kwargs["device_map"] = "auto"
+            # Enable optimized attention if available
+            if torch_dtype in ["float16", "bfloat16"]:
+                runtime_kwargs["low_cpu_mem_usage"] = True
+
         self.model = AutoModelForCausalLM.from_pretrained(
             **runtime_kwargs
         )
-        self.model.eval().to(self.device)
+        self.model.eval()
+        
+        # Move to device if not using device_map
+        if "device_map" not in runtime_kwargs:
+            self.model.to(self.device)
+        
+        # Enable CUDA optimizations
+        if self.device.type == "cuda":
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            if hasattr(torch.backends.cuda, 'flash_sdp_enabled'):
+                torch.backends.cuda.flash_sdp_enabled = True
 
         self.streamer: dict[str, ResIteratorStreamer] = {}
 
@@ -183,6 +203,10 @@ class TorchGenerator(BaseLLM):
         prompt_length = input_ids.size(1)
         completion_ids = generated_ids[0][prompt_length:]
         completions_text = self.tokenizer.decode(completion_ids, skip_special_tokens=skip_special_tokens)
+
+        # Clear CUDA cache if needed
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()
 
         return GenerationResponse(
             text=completions_text,
@@ -234,3 +258,7 @@ class TorchGenerator(BaseLLM):
             yield res
 
         self.streamer.pop(request_id)
+        
+        # Clear CUDA cache after streaming generation
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()

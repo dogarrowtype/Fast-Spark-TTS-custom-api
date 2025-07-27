@@ -83,8 +83,7 @@ For systems with CUDA >=12.1 and Python 3.10-3.12:
 
 ```bash
 # Replace <cuda-version> with your CUDA version
-pip install llama-cpp-python \
-  --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/<cuda-version-goes-here>
+pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/<cuda-version-goes-here>
 ```
 
 **CUDA Version Mapping:**
@@ -96,8 +95,7 @@ pip install llama-cpp-python \
 
 **Example for CUDA 12.1:**
 ```bash
-pip install llama-cpp-python \
-  --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
+pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
 ```
 Install the highest version that your system supports.
 
@@ -574,6 +572,10 @@ python tts_server_fast_validation.py --prompt_audio "male_voice.wav" --port 9992
 - **Use fixed seed** for consistent results: `--seed 42`
 
 ## Troubleshooting
+
+### Known issues
+- Fails on reading numbers expanded to text.
+- Has issues reading complex formatting (lists, typical assistant output). Mostly suitable for reading prose, conversations, natural speech.
 
 ### Common Issues
 

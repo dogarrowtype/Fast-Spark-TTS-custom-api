@@ -49,6 +49,11 @@ class SparkDeTokenizer:
         self.model = SparkDeTokenizerModel.from_pretrained(
             os.path.join(model_path, "BiCodec")
         ).to(self.device)
+        
+        # Enable CUDA optimizations
+        if self.device.type == "cuda":
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
 
         self._batch_processor = AsyncBatchEngine(
             processing_function=self.batch_detokenize_async,
@@ -93,7 +98,9 @@ class SparkDeTokenizer:
                 "audio": audio,
             })
 
+        # Enhanced CUDA memory management
         if self.device.type == "cuda":
+            torch.cuda.synchronize()
             torch.cuda.empty_cache()
         return responses
 

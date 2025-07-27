@@ -70,9 +70,16 @@ class SparkTokenizer:
     ):
         self.device = torch.device(device)
         wav2vec_path = os.path.join(model_path, "wav2vec2-large-xlsr-53")
+        
+        # Enhanced model loading with CUDA optimizations
+        model_kwargs = {"attn_implementation": attn_implementation}
+        if self.device.type == "cuda":
+            model_kwargs["torch_dtype"] = torch.float16
+            model_kwargs["low_cpu_mem_usage"] = True
+            
         self.wav2vec2 = Wav2Vec2Model.from_pretrained(
             wav2vec_path,
-            attn_implementation=attn_implementation
+            **model_kwargs
         )
         self.wav2vec2.config.output_hidden_states = True
         self.wav2vec2.to(self.device)
@@ -81,6 +88,12 @@ class SparkTokenizer:
         self.model = SparkTokenizerModel.from_pretrained(
             os.path.join(model_path, "BiCodec")
         ).to(self.device)
+        
+        # Enable CUDA optimizations
+        if self.device.type == "cuda":
+            # Enable optimized attention mechanisms
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
 
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(
             wav2vec_path
@@ -174,7 +187,10 @@ class SparkTokenizer:
 
         outputs = self.model(audio_features, audio_clip.to(self.device))
 
+        # Enhanced CUDA memory management
         if self.device.type == "cuda":
+            # Synchronize before clearing cache
+            torch.cuda.synchronize()
             torch.cuda.empty_cache()
 
         return outputs

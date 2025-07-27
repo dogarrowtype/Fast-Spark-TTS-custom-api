@@ -532,10 +532,27 @@ if __name__ == '__main__':
             try:
                 logging.info(f"Preloading SparkTTS model from {args.model_dir}")
                 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+                
+                # Verify CUDA availability if CUDA device is requested
+                if args.device != "default" and args.device.startswith("cuda"):
+                    if not torch.cuda.is_available():
+                        logging.error("CUDA requested but not available. Falling back to CPU.")
+                        device = "cpu"
+                    else:
+                        device = args.device
+                        logging.info(f"Using CUDA device: {device}")
+                elif args.device == "default":
+                    device = "auto"
+                else:
+                    device = args.device
+                
                 engine = AutoEngine(
                     model_path=args.model_dir,
                     max_length=GLOBAL_VOICE_PARAMS["max_generation_tokens"],
                     backend="llama-cpp",
+                    llm_device=device,
+                    tokenizer_device=device,
+                    detokenizer_device=device,
                 )
                 logging.info("Model loaded successfully")
             except Exception as e:

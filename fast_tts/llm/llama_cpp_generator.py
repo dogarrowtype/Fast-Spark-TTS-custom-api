@@ -36,12 +36,51 @@ class LlamaCppGenerator(BaseLLM):
                     f"Multiple gguf files found in the model directory, using the first one: {model_files[0]}")
             model_file = os.path.join(model_path, model_files[0])
 
-        runtime_kwargs = dict(
-            model_path=model_file,
-            n_ctx=max_length,
-            n_gpu_layers=0 if device == 'cpu' else -1,
-            **kwargs
-        )
+        # Improved CUDA handling for llama-cpp
+        if device == 'cpu':
+            n_gpu_layers = 0
+            logger.info("Using CPU-only mode for llama-cpp")
+            runtime_kwargs = dict(
+                model_path=model_file,
+                n_ctx=max_length,
+                n_gpu_layers=n_gpu_layers,
+                verbose=False,  # Suppress debug output
+                **kwargs
+            )
+        elif device.startswith('cuda'):
+            n_gpu_layers = -1  # Use all GPU layers
+            # Extract CUDA device ID if specified (e.g., cuda:1)
+            if ':' in device:
+                gpu_id = int(device.split(':')[1])
+                logger.info(f"Using CUDA device {gpu_id} with all GPU layers for llama-cpp")
+                runtime_kwargs = dict(
+                    model_path=model_file,
+                    n_ctx=max_length,
+                    n_gpu_layers=n_gpu_layers,
+                    main_gpu=gpu_id,
+                    verbose=False,  # Suppress debug output
+                    **kwargs
+                )
+            else:
+                logger.info("Using CUDA with all GPU layers for llama-cpp")
+                runtime_kwargs = dict(
+                    model_path=model_file,
+                    n_ctx=max_length,
+                    n_gpu_layers=n_gpu_layers,
+                    verbose=False,  # Suppress debug output
+                    **kwargs
+                )
+        else:
+            # Default fallback
+            n_gpu_layers = -1
+            logger.info("Using default GPU configuration for llama-cpp")
+            runtime_kwargs = dict(
+                model_path=model_file,
+                n_ctx=max_length,
+                n_gpu_layers=n_gpu_layers,
+                verbose=False,  # Suppress debug output
+                **kwargs
+            )
         self.model = Llama(
             **runtime_kwargs
         )
