@@ -43,6 +43,9 @@ WHISPER_MODEL = None
 VALIDATION_ENABLED = False
 VALIDATION_THRESHOLD = 0.85  # Percentage of text that speech-to-text (whisper) says matches the input
 
+# Global configuration for pipe splitting
+PIPE_SPLIT_ENABLED = True  # Enable pipe character splitting by default
+
 # Global voice parameters set at server startup
 GLOBAL_VOICE_PARAMS = {
     "gender": None,
@@ -101,6 +104,23 @@ def is_ffmpeg_available():
             continue
 
     return False
+
+def split_on_pipes(text):
+    """
+    Split text on pipe characters (|) while preserving natural pauses.
+    Returns a list of text segments.
+    """
+    # Split on pipe character
+    segments = text.split('|')
+    
+    # Clean up segments - strip whitespace and filter out empty ones
+    cleaned_segments = []
+    for segment in segments:
+        cleaned = segment.strip()
+        if cleaned:  # Only add non-empty segments
+            cleaned_segments.append(cleaned)
+    
+    return cleaned_segments
 
 async def generate_audio_segment(engine, seg, prompt_speech_path, validate=False, validation_threshold=0.9):
     """Generate an audio segment asynchronously and optionally validate with Whisper STT"""
@@ -221,10 +241,24 @@ async def generate_tts_audio(
             return word
         text = re.sub(r'\b[A-Z][A-Z]+\b', lowercase_all_caps, text)
 
-    logging.info(f"Splitting into segments... Threshold: {segmentation_threshold} characters")
-    splitter = TextSplitter(segmentation_threshold)
-    segments = splitter.chunks(text)
-    logging.info(f"Number of segments: {len(segments)}")
+    # Handle pipe character splitting first (if enabled)
+    if PIPE_SPLIT_ENABLED:
+        pipe_segments = split_on_pipes(text)
+        logging.info(f"Text split on pipe characters into {len(pipe_segments)} parts")
+    else:
+        pipe_segments = [text]
+
+    # Apply semantic segmentation to each pipe segment
+    all_segments = []
+    for pipe_seg in pipe_segments:
+        if pipe_seg.strip():  # Skip empty segments
+            logging.info(f"Splitting pipe segment into semantic segments... Threshold: {segmentation_threshold} characters")
+            splitter = TextSplitter(segmentation_threshold)
+            semantic_segments = splitter.chunks(pipe_seg.strip())
+            all_segments.extend(semantic_segments)
+    
+    segments = all_segments
+    logging.info(f"Total number of segments after pipe and semantic splitting: {len(segments)}")
 
     MAX_SILENCE_THRESHOLD = 5.0  # 5 seconds
     MAX_RETRY_ATTEMPTS = 3
@@ -507,8 +541,12 @@ if __name__ == '__main__':
     parser.add_argument("--allow_allcaps", action='store_true', help="Allow words with all capital letters")
     parser.add_argument("--validate", action='store_true', help="Enable validation of generated audio using Whisper")
     parser.add_argument("--validation_threshold", type=float, default=0.85, help="Threshold for text similarity validation (0-1)")
+    parser.add_argument("--disable_pipe_split", action='store_true', help="Disable automatic text splitting on pipe characters (|)")
 
     args = parser.parse_args()
+
+    # Set global pipe split configuration
+    PIPE_SPLIT_ENABLED = not args.disable_pipe_split
 
     # Set global voice parameters
     GLOBAL_VOICE_PARAMS["gender"] = args.gender if not args.prompt_audio else None

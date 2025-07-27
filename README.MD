@@ -12,6 +12,7 @@ This project provides a production-ready OpenAI-compatible TTS API built on top 
 - **OpenAI Compatibility**: Full compatibility with OpenAI's `/v1/audio/speech` API endpoint
 - **Advanced Voice Cloning**: Zero-shot voice cloning using reference audio samples (5-20 seconds)
 - **Intelligent Text Processing**: Semantic text splitting to handle unlimited text length
+- **Pipe Character Splitting**: Automatic segment splitting on pipe characters (`|`) for precise audio control
 - **Audio Validation**: Optional Whisper-based validation to ensure quality output
 - **Multiple Backends**: Support for llama-cpp for inference
 - **Smart Retry Logic**: Automatic retry for failed segments with quality control
@@ -196,6 +197,7 @@ with client.audio.speech.with_streaming_response.create(
 |--------|-------------|---------|
 | `--seg_threshold` | Character limit for text segments | `400` |
 | `--allow_allcaps` | Allow words with all capital letters | `False` |
+| `--disable_pipe_split` | Disable automatic text splitting on pipe characters | `False` |
 
 ### Validation Features
 
@@ -203,6 +205,41 @@ with client.audio.speech.with_streaming_response.create(
 |--------|-------------|---------|
 | `--validate` | Enable Whisper validation of generated audio | `False` |
 | `--validation_threshold` | Similarity threshold for validation (0-1) | `0.85` |
+
+## Text Processing Features
+
+### Pipe Character Splitting
+
+The server includes automatic text splitting on pipe characters (`|`) for precise control over audio segments. This feature is **enabled by default** and allows you to create natural pauses or breaks in the generated speech.
+
+**How it works:**
+- Text is first split on pipe characters (`|`)
+- Each pipe-separated segment is then processed through semantic segmentation
+- This creates natural breaks in the audio at the pipe locations
+
+**Example Usage:**
+```json
+{
+  "model": "tts-1",
+  "input": "Welcome to our service. | Please hold while we connect you. | Thank you for your patience.",
+  "response_format": "mp3"
+}
+```
+
+This will generate three distinct audio segments with natural pauses between them.
+
+**Disabling Pipe Splitting:**
+If you want to treat pipe characters as literal text instead of segment breaks, use the `--disable_pipe_split` flag:
+
+```bash
+python tts_server_fast_validation.py --prompt_audio "voice.wav" --disable_pipe_split
+```
+
+**Use Cases:**
+- Creating distinct sections in narration
+- Adding natural pauses in dialogue
+- Separating different speakers or contexts
+- Building interactive voice responses with clear breaks
 
 ## Voice Cloning
 
