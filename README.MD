@@ -1,7 +1,8 @@
 # Fast-Spark-TTS Custom API
 
 An OpenAI-compatible Text-to-Speech API server for SparkTTS with advanced voice cloning, validation, and intelligent text processing capabilities. It works on both CUDA gpus and Apple Silicon!
-Fully functional, but code is messy and beta-quality.
+
+Fully functional, but may encounter some known issues that are being worked on.
 
 ## Overview
 
@@ -21,7 +22,7 @@ This project provides a production-ready OpenAI-compatible TTS API built on top 
 
 ## Hardware Requirements
 
-- **VRAM**: ~8.5 GB
+- **VRAM**: Not much. Depends on which quant you choose. Less than 4GB.
 - **Performance**: Larger GPUs will achieve faster than real-time generation. The longer the input segment is, the longer it takes to generate. No streaming, sorry. On a high end mac, it can be extremely fast. (3 seconds for 10 seconds of audio, but it varies.)
 - **CPU**: GPU recommended, but can run on CPU only.
 
@@ -30,7 +31,7 @@ This project provides a production-ready OpenAI-compatible TTS API built on top 
 ### Prerequisites
 
 - Python 3.11 or 3.12
-- CUDA-compatible GPU (recommended) or Apple Silicon with MPS support
+- CUDA-compatible GPU (recommended), Apple Silicon with MPS support, GPU that supports vulkan, or a fast CPU
 - Git (for cloning)
 
 ### Step 1: Clone Repository
