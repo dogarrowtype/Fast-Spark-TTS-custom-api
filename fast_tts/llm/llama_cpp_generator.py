@@ -6,6 +6,53 @@ from typing import AsyncIterator, Optional, List
 from ..logger import get_logger
 from .base_llm import BaseLLM, GenerationResponse
 
+def _check_cuda_availability():
+    """Check if CUDA is available for llama-cpp-python"""
+    try:
+        import llama_cpp
+        # Check if llama-cpp was compiled with CUDA support
+        return hasattr(llama_cpp.llama_cpp, 'GGML_USE_CUBLAS') or hasattr(llama_cpp.llama_cpp, 'GGML_USE_CUDA')
+    except (ImportError, AttributeError):
+        return False
+
+def _verify_cuda_usage(model, device: str, n_gpu_layers: int):
+    """Verify that the model is actually using CUDA when requested"""
+    if not device.startswith('cuda'):
+        return  # Not using CUDA, no need to verify
+    
+    logger = get_logger()
+    
+    # Check if CUDA support was compiled in
+    if not _check_cuda_availability():
+        logger.warning("CUDA device was requested but llama-cpp-python was not compiled with CUDA support. "
+                      "The model will fall back to CPU. Please install llama-cpp-python with CUDA support.")
+        return
+    
+    # Try to get model metadata to verify GPU usage
+    try:
+        # Check if the model has GPU layers loaded
+        if hasattr(model, 'n_gpu_layers'):
+            actual_gpu_layers = model.n_gpu_layers
+            if actual_gpu_layers == 0:
+                logger.warning(f"CUDA device '{device}' was requested with {n_gpu_layers} GPU layers, "
+                             f"but the model is using 0 GPU layers. Check CUDA installation and GPU memory.")
+            else:
+                logger.info(f"Successfully verified CUDA usage: {actual_gpu_layers} GPU layers loaded on device '{device}'")
+        else:
+            # Alternative check - try to access CUDA context if available
+            try:
+                import llama_cpp
+                # If we can access the model's context and it's using CUDA, this should work
+                if hasattr(model, 'ctx') and model.ctx:
+                    logger.info(f"CUDA device '{device}' appears to be in use (model context initialized)")
+                else:
+                    logger.warning(f"CUDA device '{device}' was requested but model context verification failed")
+            except Exception as e:
+                logger.warning(f"Could not verify CUDA usage for device '{device}': {e}")
+                
+    except Exception as e:
+        logger.warning(f"Could not verify CUDA usage for device '{device}': {e}")
+
 logger = get_logger()
 
 __all__ = ["LlamaCppGenerator"]
@@ -84,6 +131,9 @@ class LlamaCppGenerator(BaseLLM):
         self.model = Llama(
             **runtime_kwargs
         )
+        
+        # Verify CUDA usage if a CUDA device was requested
+        _verify_cuda_usage(self.model, device, n_gpu_layers)
         # 不使用llama cpp 的 tokenizer
         super(LlamaCppGenerator, self).__init__(
             tokenizer=model_path,
