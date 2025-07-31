@@ -2,6 +2,8 @@
 
 An OpenAI-compatible Text-to-Speech API server for SparkTTS with advanced voice cloning, validation, and intelligent text processing capabilities. It works on both CUDA gpus and Apple Silicon!
 
+The main goal: send text via a widely used api and get clean, usable audio almost every time, from a model with issues.
+
 Fully functional, but may encounter some known issues that are being worked on.
 
 ## Overview
@@ -300,7 +302,7 @@ with client.audio.speech.with_streaming_response.create(
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--seg_threshold` | Character limit for text segments | `400` |
+| `--seg_threshold` | Character limit for text segments | `380` |
 | `--allow_allcaps` | Allow words with all capital letters | `False` |
 | `--disable_pipe_split` | Disable automatic text splitting on pipe characters | `False` |
 
@@ -576,6 +578,7 @@ python tts_server_fast_validation.py --prompt_audio "male_voice.wav" --port 9992
 ### Known issues
 - Fails on reading numbers expanded to text.
 - Has issues reading complex formatting (lists, typical assistant output). Mostly suitable for reading prose, conversations, natural speech.
+- Uncommon names have inconsistent readings.
 
 ### Common Issues
 

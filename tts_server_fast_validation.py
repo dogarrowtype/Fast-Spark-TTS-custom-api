@@ -145,6 +145,9 @@ async def generate_audio_segment(engine, seg, prompt_speech_path, validate=False
         # Write to the temporary file
         engine.write_audio(clip, temp_path)
 
+        # Load as numpy array first (so we always have the audio)
+        y, sr = librosa.load(temp_path, sr=16000)
+
         # Validate with Whisper if enabled
         if validate and WHISPER_MODEL is not None:
             try:
@@ -160,16 +163,22 @@ async def generate_audio_segment(engine, seg, prompt_speech_path, validate=False
                 logging.info(f"Original: {seg}")
                 logging.info(f"Transcribed: {transcribed_text}")
 
+                # Check if transcription ends with "..." (indicates cut-off audio)
+                if transcribed_text.rstrip().endswith("..."):
+                    logging.warning(f"Validation failed: transcription ends with '...' indicating cut-off audio")
+                    return y, 0.0  # Return low score to trigger retry
+
                 if match_score < validation_threshold:
                     logging.warning(f"Validation failed with score {match_score:.2f} < {validation_threshold}")
-                    return None, match_score  # Signal the caller to retry
+                    return y, match_score  # Return the audio anyway with the low score
+
+                return y, match_score  # Return audio with actual score
 
             except Exception as e:
                 logging.error(f"Error during whisper validation: {e}")
                 # Continue without validation if an error occurs
+                return y, 1.0
 
-        # Load as numpy array
-        y, sr = librosa.load(temp_path, sr=16000)
         return y, 1.0  # Return 1.0 as perfect score if validation was skipped or passed
 
     finally:
@@ -268,8 +277,11 @@ async def generate_tts_audio(
         logging.info(f"Processing one segment:\n{seg}")
         retry_count = 0
         validation_success = False
-
-        while retry_count < MAX_RETRY_ATTEMPTS and not validation_success:
+        wav = None
+        last_generated_wav = None
+        last_score = 0.0
+        
+        while retry_count < MAX_RETRY_ATTEMPTS:
             try:
                 # Generate audio asynchronously with validation
                 result = await generate_audio_segment(
@@ -282,10 +294,20 @@ async def generate_tts_audio(
 
                 if validate:
                     wav, score = result
-                    if wav is None:  # Validation failed
+                    # Store the last generated audio (now we always get audio)
+                    last_generated_wav = wav
+                    last_score = score
+                    
+                    if score < validation_threshold:  # Validation failed
                         logging.warning(f"Segment failed validation (score: {score:.2f}). Retry {retry_count+1}/{MAX_RETRY_ATTEMPTS}.")
                         retry_count += 1
-                        # Vary the seed for different results
+                        
+                        # If this was the last retry, break and use this attempt
+                        if retry_count >= MAX_RETRY_ATTEMPTS:
+                            logging.warning(f"Max validation retries reached. Using last generated audio (score: {score:.2f}).")
+                            break
+                        
+                        # Vary the seed for different results and retry
                         seed = random.randint(0, 4294967295)
                         torch.manual_seed(seed)
                         np.random.seed(seed)
@@ -296,38 +318,43 @@ async def generate_tts_audio(
                         continue
                     else:
                         validation_success = True
+                        break  # Validation passed, use this audio
                 else:
                     wav = result[0]  # Unpack when validate=False
                     validation_success = True
+                    break  # No validation needed, use this audio
 
-                # Get both the trimmed audio and the amount of silence trimmed
-                trimmed_wav, seconds_trimmed = trim_trailing_silence_librosa(wav, sample_rate=16000)
+                # This code should not be reached due to breaks above, but keeping for safety
+                break
 
-                # If silence is acceptable, or we've tried too many times, use this result
-                if seconds_trimmed < MAX_SILENCE_THRESHOLD or retry_count == MAX_RETRY_ATTEMPTS - 1:
-                    wavs.append(trimmed_wav)
-                    break
-                else:
-                    logging.warning(f"Too much silence detected ({seconds_trimmed:.2f}s > {MAX_SILENCE_THRESHOLD}s). "
-                                "Retrying segment... (This usually means your clone clip is bad.)")
-                    retry_count += 1
-                    validation_success = False
-                    # Vary the seed for different results
-                    seed = random.randint(0, 4294967295)
-                    torch.manual_seed(seed)
-                    np.random.seed(seed)
-                    random.seed(seed)
-                    if torch.cuda.is_available():
-                        torch.cuda.manual_seed_all(seed)
             except Exception as e:
                 logging.error(f"Error generating segment: {e}")
                 retry_count += 1
-                if retry_count == MAX_RETRY_ATTEMPTS - 1:
-                    logging.warning("Max retries reached. Using last generated clip and hoping for the best.")
-                    #silence = np.zeros(int(16000 * 0.5))  # 0.5 seconds of silence
-                    wavs.append(trimmed_wav)
+                if retry_count >= MAX_RETRY_ATTEMPTS:
+                    if validate and last_generated_wav is not None:
+                        logging.warning(f"Max retries reached due to errors. Using last generated clip (validation score: {last_score:.2f}).")
+                        wav = last_generated_wav
+                    else:
+                        logging.warning("Max retries reached. Could not generate audio.")
+                        # Create a short silence as fallback
+                        wav = np.zeros(int(16000 * 0.5))  # 0.5 seconds of silence
                     break
                 #await asyncio.sleep(0.5)  # Brief pause before retrying
+
+        # Now handle the silence trimming outside the retry loop
+        if wav is not None:
+            # Get both the trimmed audio and the amount of silence trimmed
+            trimmed_wav, seconds_trimmed = trim_trailing_silence_librosa(wav, sample_rate=16000)
+
+            # Always use the result at this point (no more retries)
+            wavs.append(trimmed_wav)
+            
+            if seconds_trimmed > MAX_SILENCE_THRESHOLD:
+                logging.warning(f"Final audio has {seconds_trimmed:.2f}s of silence (> {MAX_SILENCE_THRESHOLD}s). This usually means your clone clip is problematic.")
+        else:
+            logging.error("No audio generated for segment. Adding silence.")
+            silence = np.zeros(int(16000 * 0.5))  # 0.5 seconds of silence
+            wavs.append(silence)
 
         # Add a pause between segments
         delay_time = random.uniform(0.30, 0.5)  # Random delay between 300-500ms
@@ -362,14 +389,14 @@ async def convert_wav_to_mp3(wav_path):
             from pydub import AudioSegment
             mp3_path = wav_path.replace('.wav', '.mp3')
             sound = AudioSegment.from_wav(wav_path)
-            sound.export(mp3_path, format="mp3", parameters=["-q:a", "0"])
+            sound.export(mp3_path, format="mp3", parameters=["-b:a", "320k"])
             return mp3_path
         except ImportError:
             # Fall back to direct FFmpeg call if pydub is not available
             mp3_path = wav_path.replace('.wav', '.mp3')
             process = await asyncio.create_subprocess_exec(
                 'ffmpeg', '-i', wav_path, '-codec:a', 'libmp3lame',
-                '-qscale:a', '2', mp3_path,
+                '-b:a', '320k', mp3_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -436,7 +463,7 @@ async def tts(request: Request):
         # Extract parameters similar to OpenAI's API
         model = body.get('model', 'tts-1')  # Default to tts-1
         input_text = body.get('input')
-        response_format = body.get('response_format', 'mp3')
+        response_format = body.get('response_format', 'wav')
 
         if not input_text:
             raise HTTPException(status_code=400, detail="Input text is required")
@@ -454,7 +481,7 @@ async def tts(request: Request):
             seed=GLOBAL_VOICE_PARAMS["seed"],
             prompt_speech_path=GLOBAL_VOICE_PARAMS["prompt_speech_path"],
             prompt_text=GLOBAL_VOICE_PARAMS["prompt_text"],
-            segmentation_threshold=400,
+            segmentation_threshold=380,
             save_dir=temp_dir,
             validate=VALIDATION_ENABLED,
             validation_threshold=VALIDATION_THRESHOLD
@@ -537,7 +564,7 @@ if __name__ == '__main__':
     parser.add_argument('--speed', type=str, choices=["very_low", "low", "moderate", "high", "very_high"],
                         default="moderate", help='Speed parameter')
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducible voice generation")
-    parser.add_argument("--seg_threshold", type=int, default=400, help="Character limit for text segments")
+    parser.add_argument("--seg_threshold", type=int, default=380, help="Character limit for text segments")
     parser.add_argument("--allow_allcaps", action='store_true', help="Allow words with all capital letters")
     parser.add_argument("--validate", action='store_true', help="Enable validation of generated audio using Whisper")
     parser.add_argument("--validation_threshold", type=float, default=0.85, help="Threshold for text similarity validation (0-1)")
