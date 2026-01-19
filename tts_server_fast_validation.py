@@ -19,6 +19,7 @@ import torch
 import numpy as np
 import soundfile as sf
 import librosa
+import soxr
 import demoji
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -104,6 +105,33 @@ def is_ffmpeg_available():
             continue
 
     return False
+
+def resample_audio_soxr(audio_data, input_sr, output_sr):
+    """
+    Resample audio using SoXR for highest quality resampling.
+    
+    Args:
+        audio_data: Input audio as numpy array
+        input_sr: Input sample rate
+        output_sr: Output sample rate
+    
+    Returns:
+        Resampled audio as numpy array
+    """
+    try:
+        # SoXR resampling with highest quality settings
+        resampled = soxr.resample(
+            audio_data,
+            input_sr,
+            output_sr,
+            quality='VHQ'  # Very High Quality - best available
+        )
+        logging.info(f"Resampled audio from {input_sr}Hz to {output_sr}Hz using SoXR VHQ")
+        return resampled
+    except Exception as e:
+        logging.error(f"SoXR resampling failed: {e}, falling back to librosa")
+        # Fallback to librosa if SoXR fails
+        return librosa.resample(audio_data, orig_sr=input_sr, target_sr=output_sr, res_type='kaiser_best')
 
 def split_on_pipes(text):
     """
@@ -239,6 +267,7 @@ async def generate_tts_audio(
     text = re.sub(r'[–]', '-', text)  # En dash to hyphen
     text = re.sub(r'…', '...', text)  # Ellipsis
     text = re.sub(r'[•‣⁃*]', '', text)  # Bullets to none
+    text = re.sub(r'—', ' — ', text)  # Em dash padding
     text = demoji.replace(text, "")
 
     if not args.allow_allcaps:
@@ -364,14 +393,20 @@ async def generate_tts_audio(
         logging.info(f"Processed one segment{' after ' + str(retry_count) + ' retries' if retry_count > 0 else ''}.")
 
     final_wav = np.concatenate(wavs, axis=0)
-    sf.write(save_path, final_wav, samplerate=16000)
-    logging.info(f"Audio saved at: {save_path}")
+    
+    # Resample to 48kHz using SoXR for highest quality
+    final_wav_48khz = resample_audio_soxr(final_wav, 16000, 48000)
+    
+    # Save the resampled audio at 48kHz
+    sf.write(save_path, final_wav_48khz, samplerate=48000)
+    logging.info(f"Audio saved at 48kHz: {save_path}")
 
     return save_path
 
 async def convert_wav_to_mp3(wav_path):
     """
-    Convert WAV file to MP3 format, silently failing to WAV if conversion is not possible
+    Convert WAV file to MP3 format, silently failing to WAV if conversion is not possible.
+    Now preserves 48kHz sample rate for high quality output.
 
     Args:
         wav_path: Path to the WAV file
@@ -389,26 +424,121 @@ async def convert_wav_to_mp3(wav_path):
             from pydub import AudioSegment
             mp3_path = wav_path.replace('.wav', '.mp3')
             sound = AudioSegment.from_wav(wav_path)
-            sound.export(mp3_path, format="mp3", parameters=["-b:a", "320k"])
+            # Export with 48kHz sample rate and high bitrate
+            sound.export(mp3_path, format="mp3", parameters=["-ar", "48000", "-b:a", "320k"])
+            logging.info(f"MP3 exported at 48kHz with 320k bitrate")
             return mp3_path
         except ImportError:
             # Fall back to direct FFmpeg call if pydub is not available
             mp3_path = wav_path.replace('.wav', '.mp3')
             process = await asyncio.create_subprocess_exec(
                 'ffmpeg', '-i', wav_path, '-codec:a', 'libmp3lame',
-                '-b:a', '320k', mp3_path,
+                '-ar', '48000', '-b:a', '320k', mp3_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
             await process.communicate()
 
             if os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 0:
+                logging.info(f"MP3 converted at 48kHz with 320k bitrate using FFmpeg")
                 return mp3_path
             else:
                 logging.warning("MP3 conversion failed. Returning WAV file instead.")
                 return wav_path
     except Exception as e:
         logging.warning(f"Error converting to MP3: {e}. Returning WAV file instead.")
+        return wav_path
+
+async def convert_wav_to_opus(wav_path):
+    """
+    Convert WAV file to OPUS format at 128k bitrate, silently failing to WAV if conversion is not possible.
+    Preserves 48kHz sample rate for high quality output.
+
+    Args:
+        wav_path: Path to the WAV file
+
+    Returns:
+        str: Path to the output file (either OPUS or original WAV if conversion failed)
+    """
+    if not ffmpeg_available:
+        logging.warning("FFmpeg not available. Returning WAV file instead.")
+        return wav_path
+
+    try:
+        # First try pydub approach
+        try:
+            from pydub import AudioSegment
+            opus_path = wav_path.replace('.wav', '.opus')
+            sound = AudioSegment.from_wav(wav_path)
+            # Export with 48kHz sample rate and 128k bitrate for OPUS
+            sound.export(opus_path, format="opus", parameters=["-ar", "48000", "-b:a", "128k"])
+            logging.info(f"OPUS exported at 48kHz with 128k bitrate")
+            return opus_path
+        except ImportError:
+            # Fall back to direct FFmpeg call if pydub is not available
+            opus_path = wav_path.replace('.wav', '.opus')
+            process = await asyncio.create_subprocess_exec(
+                'ffmpeg', '-i', wav_path, '-codec:a', 'libopus',
+                '-ar', '48000', '-b:a', '128k', opus_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await process.communicate()
+
+            if os.path.exists(opus_path) and os.path.getsize(opus_path) > 0:
+                logging.info(f"OPUS converted at 48kHz with 128k bitrate using FFmpeg")
+                return opus_path
+            else:
+                logging.warning("OPUS conversion failed. Returning WAV file instead.")
+                return wav_path
+    except Exception as e:
+        logging.warning(f"Error converting to OPUS: {e}. Returning WAV file instead.")
+        return wav_path
+
+async def convert_wav_to_flac(wav_path):
+    """
+    Convert WAV file to FLAC format with maximum compression, silently failing to WAV if conversion is not possible.
+    Preserves 48kHz sample rate for high quality output.
+
+    Args:
+        wav_path: Path to the WAV file
+
+    Returns:
+        str: Path to the output file (either FLAC or original WAV if conversion failed)
+    """
+    if not ffmpeg_available:
+        logging.warning("FFmpeg not available. Returning WAV file instead.")
+        return wav_path
+
+    try:
+        # First try pydub approach
+        try:
+            from pydub import AudioSegment
+            flac_path = wav_path.replace('.wav', '.flac')
+            sound = AudioSegment.from_wav(wav_path)
+            # Export with 48kHz sample rate and maximum compression for FLAC
+            sound.export(flac_path, format="flac", parameters=["-ar", "48000", "-compression_level", "12"])
+            logging.info(f"FLAC exported at 48kHz with maximum compression")
+            return flac_path
+        except ImportError:
+            # Fall back to direct FFmpeg call if pydub is not available
+            flac_path = wav_path.replace('.wav', '.flac')
+            process = await asyncio.create_subprocess_exec(
+                'ffmpeg', '-i', wav_path, '-codec:a', 'flac',
+                '-ar', '48000', '-compression_level', '12', flac_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await process.communicate()
+
+            if os.path.exists(flac_path) and os.path.getsize(flac_path) > 0:
+                logging.info(f"FLAC converted at 48kHz with maximum compression using FFmpeg")
+                return flac_path
+            else:
+                logging.warning("FLAC conversion failed. Returning WAV file instead.")
+                return wav_path
+    except Exception as e:
+        logging.warning(f"Error converting to FLAC: {e}. Returning WAV file instead.")
         return wav_path
 
 def trim_trailing_silence_librosa(wav_data, sample_rate=16000, top_db=30, frame_length=1024, hop_length=512):
@@ -487,13 +617,21 @@ async def tts(request: Request):
             validation_threshold=VALIDATION_THRESHOLD
         )
 
-        # Convert to MP3 if requested (will silently fall back to WAV if FFmpeg isn't available)
+        # Convert to requested format (will silently fall back to WAV if FFmpeg isn't available)
         if response_format == 'mp3':
             output_file = await convert_wav_to_mp3(output_file)
+        elif response_format == 'opus':
+            output_file = await convert_wav_to_opus(output_file)
+        elif response_format == 'flac':
+            output_file = await convert_wav_to_flac(output_file)
 
         # Determine the correct mimetype based on the actual file extension
         if output_file.endswith('.mp3'):
             media_type = "audio/mpeg"
+        elif output_file.endswith('.opus'):
+            media_type = "audio/opus"
+        elif output_file.endswith('.flac'):
+            media_type = "audio/flac"
         else:
             media_type = "audio/wav"
 
