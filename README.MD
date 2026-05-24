@@ -17,9 +17,10 @@ This project provides a production-ready OpenAI-compatible TTS API built on top 
 - **Intelligent Text Processing**: Semantic text splitting to handle unlimited text length
 - **Pipe Character Splitting**: Automatic segment splitting on pipe characters (`|`) for precise audio control
 - **Audio Validation**: Optional Whisper-based validation to ensure quality output
-- **Multiple Backends**: Support for llama-cpp for inference
-- **Smart Retry Logic**: Automatic retry for failed segments with quality control
-- **Flexible Audio Formats**: Support for MP3, WAV, OPUS, FLAC, AAC, and PCM formats
+- **Smart Retry Logic**: Automatic retry for failed segments with quality control. Falls back to the best attempt if validation never passes (instead of dropping audio)
+- **High-Quality 48kHz Output**: All audio is upsampled to 48kHz using SoXR VHQ before encoding
+- **Flexible Audio Formats**: WAV (48kHz), MP3 (320k), OPUS (128k), FLAC (max compression) — all at 48kHz
+- **Optional RVC Pass**: Forward generated audio to an external RVC (Retrieval-based Voice Conversion) server for an additional voice-conversion step (see [RVC Voice Conversion](#rvc-voice-conversion))
 - **Production Features**: Silence trimming, semantic segmentation, and robust error handling
 
 ## Hardware Requirements
@@ -313,6 +314,12 @@ with client.audio.speech.with_streaming_response.create(
 | `--validate` | Enable Whisper validation of generated audio | `False` |
 | `--validation_threshold` | Similarity threshold for validation (0-1) | `0.85` |
 
+### Voice Conversion (Optional)
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--rvc_server` | URL of an external RVC server to forward generated audio through, e.g. `http://localhost:5050` | `None` |
+
 ## Text Processing Features
 
 ### Pipe Character Splitting
@@ -347,6 +354,41 @@ python tts_server_fast_validation.py --prompt_audio "voice.wav" --disable_pipe_s
 - Adding natural pauses in dialogue
 - Separating different speakers or contexts
 - Building interactive voice responses with clear breaks
+
+## RVC Voice Conversion
+
+This server can optionally pipe its generated audio through a separate **RVC (Retrieval-based Voice Conversion)** server before encoding. RVC re-renders the audio in a target voice while keeping the SparkTTS prosody and timing. This gives you a two-stage pipeline: SparkTTS for expressive delivery + RVC for a specific singer/speaker timbre that SparkTTS cloning cannot reach.
+
+**This repo does not include the RVC server itself.** You bring your own — any HTTP service that accepts a POST to `/convert` with `{"audio_data": "<base64-wav>"}` and returns the converted audio file as the response body. The most common option is [RVC-Project/Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) wrapped in a small Flask/FastAPI shim.
+
+**Usage:**
+
+Minimal:
+
+```bash
+python tts_server_fast_validation.py \
+  --prompt_audio "voice_samples/female1.wav" \
+  --validate \
+  --rvc_server http://localhost:5050
+```
+
+Full real-world example (Apple Silicon, LAN-accessible, pointing at an RVC server on another machine):
+
+```bash
+python ./tts_server_fast_validation.py \
+  --validate \
+  --prompt_audio "voice_samples/female1.wav" \
+  --host 0.0.0.0 \
+  --device mps \
+  --rvc_server http://192.168.2.88:5050
+```
+
+`--host 0.0.0.0` exposes the server on your LAN so other machines (e.g. the box running SillyTavern or Open-WebUI) can reach it. `--device mps` selects Apple's Metal backend; use `cuda:0` for NVIDIA or omit for auto-detect.
+
+Behavior:
+- RVC is called *before* final 48kHz resampling. The TTS audio is sent at 16kHz; RVC is allowed to return any sample rate, which is then resampled to 48kHz by SoXR.
+- Failures (timeout, connection error, non-200) are logged and the original (non-converted) audio is used. The TTS request never fails because of RVC.
+- Timeout is 30s per request.
 
 ## Voice Cloning
 
@@ -576,9 +618,10 @@ python tts_server_fast_validation.py --prompt_audio "male_voice.wav" --port 9992
 ## Troubleshooting
 
 ### Known issues
-- Fails on reading numbers expanded to text.
+- Fails on reading numbers (best to expand them to words yourself before sending).
 - Has issues reading complex formatting (lists, typical assistant output). Mostly suitable for reading prose, conversations, natural speech.
 - Uncommon names have inconsistent readings.
+- CPU-only mode is not fully tuned — GPU is strongly recommended.
 
 ### Common Issues
 
@@ -596,9 +639,10 @@ If validation is enabled and segments are being retried:
 
 ### Audio Format Issues
 
-- MP3 conversion requires FFmpeg
-- If FFmpeg is unavailable, the server will fall back to WAV format
-- PCM format returns raw audio data without headers
+- MP3, OPUS, and FLAC conversion all require FFmpeg
+- If FFmpeg is unavailable, the server will silently fall back to WAV
+- All formats are produced at **48kHz** (SparkTTS native output is 16kHz; SoXR VHQ resamples before encoding)
+- MP3 is encoded at 320k, OPUS at 128k, FLAC at max compression
 
 ## Performance Notes
 

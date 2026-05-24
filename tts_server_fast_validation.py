@@ -11,8 +11,10 @@ import re
 import uuid
 import time
 import asyncio
+import warnings
 from datetime import datetime
 from typing import Optional
+from io import BytesIO
 
 # Third-party libraries
 import torch
@@ -22,6 +24,8 @@ import librosa
 import soxr
 import demoji
 import uvicorn
+import requests
+import base64
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -43,6 +47,9 @@ engine = None
 WHISPER_MODEL = None
 VALIDATION_ENABLED = False
 VALIDATION_THRESHOLD = 0.85  # Percentage of text that speech-to-text (whisper) says matches the input
+
+# RVC server configuration
+RVC_SERVER_URL = None
 
 # Global configuration for pipe splitting
 PIPE_SPLIT_ENABLED = True  # Enable pipe character splitting by default
@@ -393,15 +400,84 @@ async def generate_tts_audio(
         logging.info(f"Processed one segment{' after ' + str(retry_count) + ' retries' if retry_count > 0 else ''}.")
 
     final_wav = np.concatenate(wavs, axis=0)
+    current_sr = 16000  # Initial sample rate from TTS generation
     
-    # Resample to 48kHz using SoXR for highest quality
-    final_wav_48khz = resample_audio_soxr(final_wav, 16000, 48000)
+    # Process with RVC if enabled (before resampling to 48kHz)
+    if RVC_SERVER_URL is not None:
+        logging.info(f"Processing audio with RVC at {current_sr}Hz...")
+        final_wav, current_sr = await process_with_rvc(final_wav, current_sr)
+        logging.info(f"RVC processing complete. Current sample rate: {current_sr}Hz")
+    
+    # Resample to 48kHz using SoXR for highest quality (only if not already at 48kHz)
+    if current_sr != 48000:
+        final_wav_48khz = resample_audio_soxr(final_wav, current_sr, 48000)
+        logging.info(f"Resampled from {current_sr}Hz to 48kHz")
+    else:
+        final_wav_48khz = final_wav
+        logging.info(f"Audio already at 48kHz, skipping resample")
     
     # Save the resampled audio at 48kHz
     sf.write(save_path, final_wav_48khz, samplerate=48000)
     logging.info(f"Audio saved at 48kHz: {save_path}")
 
     return save_path
+
+async def process_with_rvc(audio_data, sample_rate):
+    """
+    Send audio to RVC server for voice conversion (in-memory processing).
+    RVC processes the audio and may return it at a different sample rate.
+    
+    Args:
+        audio_data: Numpy array containing audio samples
+        sample_rate: Sample rate of the input audio
+    
+    Returns:
+        tuple: (processed_audio_data, output_sample_rate) or original if RVC fails
+    """
+    if RVC_SERVER_URL is None:
+        return audio_data, sample_rate
+    
+    try:
+        logging.info(f"Sending audio to RVC server at {RVC_SERVER_URL} (input SR: {sample_rate}Hz)")
+        
+        # Create an in-memory WAV file
+        wav_buffer = BytesIO()
+        sf.write(wav_buffer, audio_data, sample_rate, format='WAV')
+        wav_buffer.seek(0)
+        
+        # Encode to base64
+        audio_bytes = wav_buffer.read()
+        audio_base64 = base64.b64encode(audio_bytes).decode()
+        
+        # Send to RVC server
+        response = requests.post(
+            f"{RVC_SERVER_URL}/convert",
+            json={"audio_data": audio_base64},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            # Load the converted audio from response
+            converted_buffer = BytesIO(response.content)
+            converted_audio, converted_sr = sf.read(converted_buffer)
+            
+            logging.info(f"RVC processing completed successfully (output SR: {converted_sr}Hz)")
+            
+            # Return the RVC output with its sample rate (may differ from input)
+            return converted_audio, converted_sr
+        else:
+            logging.error(f"RVC server returned error status {response.status_code}: {response.text}")
+            return audio_data, sample_rate
+    
+    except requests.exceptions.Timeout:
+        logging.error("RVC server request timed out. Using original audio.")
+        return audio_data, sample_rate
+    except requests.exceptions.ConnectionError:
+        logging.error(f"Could not connect to RVC server at {RVC_SERVER_URL}. Using original audio.")
+        return audio_data, sample_rate
+    except Exception as e:
+        logging.error(f"Error processing with RVC: {e}. Using original audio.")
+        return audio_data, sample_rate
 
 async def convert_wav_to_mp3(wav_path):
     """
@@ -707,8 +783,14 @@ if __name__ == '__main__':
     parser.add_argument("--validate", action='store_true', help="Enable validation of generated audio using Whisper")
     parser.add_argument("--validation_threshold", type=float, default=0.85, help="Threshold for text similarity validation (0-1)")
     parser.add_argument("--disable_pipe_split", action='store_true', help="Disable automatic text splitting on pipe characters (|)")
+    parser.add_argument("--rvc_server", type=str, default=None, help="RVC server URL (with port) for additional voice processing, e.g., http://localhost:5050")
 
     args = parser.parse_args()
+    
+    # Set RVC server URL if provided
+    if args.rvc_server:
+        RVC_SERVER_URL = args.rvc_server.rstrip('/')  # Remove trailing slash if present
+        logging.info(f"🎤 RVC processing enabled at: {RVC_SERVER_URL}")
 
     # Set global pipe split configuration
     PIPE_SPLIT_ENABLED = not args.disable_pipe_split
@@ -807,6 +889,8 @@ if __name__ == '__main__':
             logging.info("Loading Whisper tiny model for validation...")
             VALIDATION_ENABLED = True
             VALIDATION_THRESHOLD = args.validation_threshold
+            # Suppress FP16 warning on CPU
+            warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
             WHISPER_MODEL = whisper.load_model("tiny")
             logging.info("Whisper model loaded successfully")
         except Exception as e:
